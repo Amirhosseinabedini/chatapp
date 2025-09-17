@@ -1,0 +1,35 @@
+{% extends 'base.html.twig' %}
+{% block title %}Realtime Test{% endblock %}
+{% block body %}
+  <div style="max-width:760px;margin:2rem auto;font-family:system-ui">
+    <h1>Realtime Test (Mercure)</h1>
+    <p>Topic: <code>{{ topic }}</code></p>
+    <button id="publishBtn">Publish from server</button>
+    <pre id="log" style="background:#111;color:#0f0;padding:1rem;min-height:200px;overflow:auto;"></pre>
+  </div>
+
+  <script>
+  (function() {
+    const topic = encodeURIComponent('{{ topic }}');
+    const hubUrl = '{{ mercure('') }}';
+    const url = hubUrl + '?topic=' + topic;
+
+    const log = (msg) => {
+      const el = document.getElementById('log');
+      el.textContent += msg + "\n";
+    };
+
+    const sse = new EventSource(url, { withCredentials: true });
+    sse.onopen = () => log('[SSE] connected.');
+    sse.onerror = () => log('[SSE] error');
+    sse.onmessage = (e) => log('[MSG] ' + e.data);
+
+    document.getElementById('publishBtn').addEventListener('click', () => {
+      fetch('{{ path("app_realtime_publish") }}')
+        .then(r => r.text())
+        .then(t => log('[HTTP] ' + t))
+        .catch(err => log('[HTTP ERROR] ' + err));
+    });
+  })();
+  </script>
+{% endblock %}
