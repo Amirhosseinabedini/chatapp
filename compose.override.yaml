@@ -1,18 +1,15 @@
-
 services:
-###> doctrine/doctrine-bundle ###
-  database:
-    ports:
-      - "5432"
-###< doctrine/doctrine-bundle ###
-
-###> symfony/mailer ###
-  mailer:
-    image: axllent/mailpit
-    ports:
-      - "1025"
-      - "8025"
+  mercure:
+    image: dunglas/mercure
+    restart: unless-stopped
     environment:
-      MP_SMTP_AUTH_ACCEPT_ANY: 1
-      MP_SMTP_AUTH_ALLOW_INSECURE: 1
-###< symfony/mailer ###
+      MERCURE_JWT_KEY: "ChangeThisMercureJWTSecret_ReplaceMe"
+      MERCURE_PUBLISHER_JWT_KEY: "ChangeThisMercureJWTSecret_ReplaceMe"
+      MERCURE_SUBSCRIBER_JWT_KEY: "ChangeThisMercureJWTSecret_ReplaceMe"
+      MERCURE_PUBLISH_ALLOWED_ORIGINS: "*"
+      MERCURE_CORS_ALLOWED_ORIGINS: "*"
+      MERCURE_EXTRA_DIRECTIVES: |
+        cors_origins *
+        anonymous
+    ports:
+      - "8080:80"
