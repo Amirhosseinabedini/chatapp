@@ -10,19 +10,27 @@
 
   <script>
   (function() {
-    const topic = encodeURIComponent('{{ topic }}');
-    const hubUrl = '{{ mercure('') }}';
-    const url = hubUrl + '?topic=' + topic;
+    const topic = '{{ topic }}'; // raw topic
+    const hubUrl = 'http://127.0.0.1:8080/.well-known/mercure';
+    const urlObj = new URL(hubUrl);
+    urlObj.searchParams.append('topic', topic);
+    const url = urlObj.toString();
 
     const log = (msg) => {
       const el = document.getElementById('log');
       el.textContent += msg + "\n";
     };
 
-    const sse = new EventSource(url, { withCredentials: true });
-    sse.onopen = () => log('[SSE] connected.');
-    sse.onerror = () => log('[SSE] error');
-    sse.onmessage = (e) => log('[MSG] ' + e.data);
+    // Step 1: request subscriber JWT cookie
+    fetch('{{ path("app_realtime_auth") }}', { credentials: 'include' })
+      .then(() => {
+        // Step 2: connect with credentials so the cookie is sent
+        const sse = new EventSource(url, { withCredentials: true });
+        sse.onopen = () => log('[SSE] connected (private).');
+        sse.onerror = (e) => { log('[SSE] error'); console.log('SSE error event:', e); };
+        sse.onmessage = (e) => log('[MSG] ' + e.data);
+      })
+      .catch(err => { log('[AUTH ERROR] ' + err); });
 
     document.getElementById('publishBtn').addEventListener('click', () => {
       fetch('{{ path("app_realtime_publish") }}')
