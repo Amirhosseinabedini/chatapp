@@ -15,25 +15,23 @@ class MercureAuthController extends AbstractController
         $key = $_ENV['MERCURE_SUBSCRIBER_JWT_KEY'] ?? 'ChangeThisMercureJWTSecret_ReplaceMe';
         $topic = 'https://chatapp.local/test';
 
+        // Generate JWT allowing subscription to this topic only
         $payload = [
-            'mercure' => [
-                // فقط اجازه subscribe به همین تاپیک تست
-                'subscribe' => [$topic],
-            ],
-            'exp' => time() + 3600, // 1h
+            'mercure' => ['subscribe' => [$topic]],
+            'exp' => time() + 3600,
         ];
 
         $token = JWT::encode($payload, $key, 'HS256');
 
-        // کوکی باید برای مسیر هاب ست شود
+        // Set cookie for Mercure hub
         $cookie = Cookie::create('mercureAuthorization', 'Bearer '.$token)
             ->withPath('/.well-known/mercure')
             ->withHttpOnly(true)
-            ->withSecure(false) // روی لوکال HTTP هستیم
+            ->withSecure(false)
             ->withSameSite('lax');
 
-        $resp = new Response('OK');
-        $resp->headers->setCookie($cookie);
-        return $resp;
+        $response = new Response('OK');
+        $response->headers->setCookie($cookie);
+        return $response;
     }
 }
