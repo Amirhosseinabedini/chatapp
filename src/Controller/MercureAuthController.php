@@ -12,6 +12,7 @@ class MercureAuthController extends AbstractController
     #[Route('/realtime/auth', name: 'app_realtime_auth')]
     public function auth(): Response
     {
+        // Use the same key as MERCURE_SUBSCRIBER_JWT_KEY in Docker
         $key = $_ENV['MERCURE_SUBSCRIBER_JWT_KEY'] ?? 'ChangeThisMercureJWTSecret_ReplaceMe';
         $topic = 'https://chatapp.local/test';
 
@@ -23,8 +24,8 @@ class MercureAuthController extends AbstractController
 
         $token = JWT::encode($payload, $key, 'HS256');
 
-        // Set cookie for Mercure hub path so the browser sends it to the hub
-        $cookie = Cookie::create('mercureAuthorization', 'Bearer '.$token)
+        // IMPORTANT: cookie value must be the raw JWT (no "Bearer " prefix)
+        $cookie = Cookie::create('mercureAuthorization', $token)
             ->withPath('/.well-known/mercure')
             ->withHttpOnly(true)
             ->withSecure(false) // local dev over HTTP
