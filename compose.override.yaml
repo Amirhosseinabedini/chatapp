@@ -3,6 +3,7 @@ services:
     image: dunglas/mercure
     restart: unless-stopped
     environment:
+      SERVER_NAME: ":80"
       MERCURE_JWT_KEY: "ChangeThisMercureJWTSecret_ReplaceMe"
       MERCURE_PUBLISHER_JWT_KEY: "ChangeThisMercureJWTSecret_ReplaceMe"
       MERCURE_SUBSCRIBER_JWT_KEY: "ChangeThisMercureJWTSecret_ReplaceMe"
