@@ -1,0 +1,98 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Profile{% endblock %}
+
+{% block body %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card profile-card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-user me-2"></i>My Profile
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Avatar -->
+                    <div class="text-center mb-4">
+                        {% if user.avatar %}
+                            <img src="{{ user.avatar }}" alt="Avatar" class="profile-avatar">
+                        {% else %}
+                            <div class="profile-avatar bg-secondary d-flex align-items-center justify-content-center">
+                                <i class="fas fa-user fa-3x text-white"></i>
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- User Info -->
+                    <div class="row mb-3">
+                        <div class="col-sm-3">
+                            <strong>Email:</strong>
+                        </div>
+                        <div class="col-sm-9">
+                            {{ user.email }}
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-sm-3">
+                            <strong>Display Name:</strong>
+                        </div>
+                        <div class="col-sm-9">
+                            {{ user.displayName ?: 'Not set' }}
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-sm-3">
+                            <strong>Status:</strong>
+                        </div>
+                        <div class="col-sm-9">
+                            {% if user.isOnline %}
+                                <span class="badge bg-success">Online</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Offline</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-sm-3">
+                            <strong>Last Seen:</strong>
+                        </div>
+                        <div class="col-sm-9">
+                            {{ user.lastSeenAt ? user.lastSeenAt|date('Y-m-d H:i:s') : 'Never' }}
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-sm-3">
+                            <strong>Member Since:</strong>
+                        </div>
+                        <div class="col-sm-9">
+                            {{ user.id ? 'Recently' : 'Unknown' }}
+                        </div>
+                    </div>
+                    
+                    <!-- Actions -->
+                    <div class="text-center mt-4">
+                        <a href="{{ path('app_profile_edit') }}" class="btn btn-primary me-2">
+                            <i class="fas fa-edit me-2"></i>Edit Profile
+                        </a>
+                        
+                        {% if user.avatar %}
+                        <form method="post" action="{{ path('app_profile_remove_avatar') }}" class="d-inline">
+                            <button type="submit" class="btn btn-outline-danger" 
+                                    onclick="return confirm('Are you sure you want to remove your avatar?')">
+                                <i class="fas fa-trash me-2"></i>Remove Avatar
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

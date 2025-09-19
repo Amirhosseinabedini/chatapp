@@ -1,0 +1,418 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Chat - Home{% endblock %}
+
+{% block body %}
+<div class="container-fluid p-0">
+    <div class="chat-container">
+        <!-- Sidebar -->
+        <div class="chat-sidebar">
+            <!-- New Chat Button -->
+            <div class="new-chat-section mb-3">
+                <button class="btn btn-primary w-100" id="newChatBtn">
+                    <i class="fas fa-plus me-2"></i>Start New Chat
+                </button>
+            </div>
+            
+            <!-- Search -->
+            <div class="search-box">
+                <input type="text" class="search-input" placeholder="Search conversations..." id="searchInput">
+            </div>
+            
+            <!-- User List -->
+            <div class="user-list" id="userList">
+                {% for conversation in conversations %}
+                <div class="user-item" data-user-id="{{ conversation.user.id }}" onclick="openConversation({{ conversation.user.id }})">
+                    <img src="{{ conversation.user.avatar ?: '/images/default-avatar.svg' }}" 
+                         alt="{{ conversation.user.displayNameOrEmail }}" 
+                         class="user-avatar"
+                         onerror="this.src='/images/default-avatar.svg'">
+                    <div class="user-info">
+                        <div class="user-name">{{ conversation.user.displayNameOrEmail }}</div>
+                        <div class="user-status">
+                            {% if conversation.user.isOnline %}
+                                <span class="text-success">Online</span>
+                            {% else %}
+                                <span class="text-muted">
+                                    Last seen {{ conversation.user.lastSeenAt ? conversation.user.lastSeenAt|date('M j, g:i A') : 'Unknown' }}
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if conversation.user.isOnline %}
+                        <div class="online-indicator"></div>
+                    {% else %}
+                        <div class="offline-indicator"></div>
+                    {% endif %}
+                    {% if conversation.unread_count > 0 %}
+                        <span class="notification-badge">{{ conversation.unread_count }}</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                
+                {% if conversations is empty %}
+                <div class="text-center text-muted p-4">
+                    <i class="fas fa-comments fa-3x mb-3"></i>
+                    <p>No conversations yet. Start chatting!</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Main Chat Area -->
+        <div class="chat-main">
+            <div class="d-flex align-items-center justify-content-center h-100 text-muted">
+                <div class="text-center">
+                    <i class="fas fa-comments fa-4x mb-3"></i>
+                    <h4>Welcome to Chat App</h4>
+                    <p>Select a conversation to start chatting</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Chat Modal -->
+<div class="modal fade" id="newChatModal" tabindex="-1" aria-labelledby="newChatModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newChatModalLabel">Start New Chat</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="userSearchInput" class="form-label">Search for a user</label>
+                    <input type="text" class="form-control" id="userSearchInput" placeholder="Search by name or email...">
+                </div>
+                <div id="searchResults" class="search-results">
+                    <!-- Search results will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentUserId = {{ current_user.id }};
+let eventSource = null;
+let typingTimer = null;
+
+// Initialize presence
+document.addEventListener('DOMContentLoaded', function() {
+    // Force refresh conversation list on page load
+    refreshConversationList();
+    
+    // Set user online
+    fetch('/presence/online?' + Date.now(), { method: 'POST' })
+        .then(() => {
+            // Subscribe to presence updates
+            subscribeToPresence();
+            // Subscribe to conversation updates
+            subscribeToConversationUpdates();
+        });
+    
+    // Set user offline when page unloads
+    window.addEventListener('beforeunload', function() {
+        navigator.sendBeacon('/presence/offline', '');
+    });
+    
+    // Periodic refresh of conversation list (every 30 seconds)
+    setInterval(refreshConversationList, 30000);
+});
+
+function subscribeToPresence() {
+    const hubUrl = 'http://127.0.0.1:8080/.well-known/mercure';
+    const urlObj = new URL(hubUrl);
+    urlObj.searchParams.append('topic', 'https://chatapp.local/presence');
+    
+    // Request subscriber JWT cookie
+    fetch('/realtime/auth?' + Date.now(), { credentials: 'include' })
+        .then(() => {
+            eventSource = new EventSource(urlObj.toString() + '?' + Date.now(), { withCredentials: true });
+            
+            eventSource.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                if (data.type === 'presence') {
+                    updateUserStatus(data.user_id, data.status, data.last_seen_at);
+                }
+            };
+            
+            eventSource.onerror = function(e) {
+                console.log('SSE error:', e);
+                // Try to reconnect after 5 seconds
+                setTimeout(() => {
+                    if (eventSource && eventSource.readyState === EventSource.CLOSED) {
+                        subscribeToPresence();
+                    }
+                }, 5000);
+            };
+        })
+        .catch(err => {
+            console.log('Auth error:', err);
+            // Retry after 5 seconds
+            setTimeout(subscribeToPresence, 5000);
+        });
+}
+
+function updateUserStatus(userId, status, lastSeenAt) {
+    const userItems = document.querySelectorAll(`[data-user-id="${userId}"]`);
+    userItems.forEach(item => {
+        const statusElement = item.querySelector('.user-status');
+        const indicator = item.querySelector('.online-indicator, .offline-indicator');
+        
+        if (status === 'online') {
+            statusElement.innerHTML = '<span class="text-success">Online</span>';
+            if (indicator.classList.contains('offline-indicator')) {
+                indicator.classList.remove('offline-indicator');
+                indicator.classList.add('online-indicator');
+            }
+        } else {
+            const lastSeen = lastSeenAt ? new Date(lastSeenAt).toLocaleString() : 'Unknown';
+            statusElement.innerHTML = `<span class="text-muted">Last seen ${lastSeen}</span>`;
+            if (indicator.classList.contains('online-indicator')) {
+                indicator.classList.remove('online-indicator');
+                indicator.classList.add('offline-indicator');
+            }
+        }
+    });
+}
+
+function openConversation(userId) {
+    // Remove active class from all items
+    document.querySelectorAll('.user-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    
+    // Add active class to selected item
+    const selectedItem = document.querySelector(`[data-user-id="${userId}"]`);
+    if (selectedItem) {
+        selectedItem.classList.add('active');
+    }
+    
+    // Navigate to conversation with cache busting
+    window.location.href = `/chat/conversation/${userId}?t=${Date.now()}`;
+}
+
+// Search functionality
+document.getElementById('searchInput').addEventListener('input', function(e) {
+    const query = e.target.value.toLowerCase();
+    const userItems = document.querySelectorAll('.user-item');
+    
+    userItems.forEach(item => {
+        const userName = item.querySelector('.user-name').textContent.toLowerCase();
+        if (userName.includes(query)) {
+            item.style.display = 'flex';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+});
+
+// New Chat functionality
+document.getElementById('newChatBtn').addEventListener('click', function() {
+    const modal = new bootstrap.Modal(document.getElementById('newChatModal'));
+    modal.show();
+});
+
+// User search functionality
+let searchTimeout;
+document.getElementById('userSearchInput').addEventListener('input', function(e) {
+    const query = e.target.value.trim();
+    
+    clearTimeout(searchTimeout);
+    
+    if (query.length < 2) {
+        document.getElementById('searchResults').innerHTML = '<p class="text-muted text-center">Type at least 2 characters to search</p>';
+        return;
+    }
+    
+    searchTimeout = setTimeout(() => {
+        searchUsers(query);
+    }, 300);
+});
+
+function searchUsers(query) {
+    fetch(`/chat/search-users?q=${encodeURIComponent(query)}`)
+        .then(response => response.json())
+        .then(data => {
+            displaySearchResults(data.users);
+        })
+        .catch(error => {
+            console.error('Error searching users:', error);
+            document.getElementById('searchResults').innerHTML = '<p class="text-danger text-center">Error searching users</p>';
+        });
+}
+
+function displaySearchResults(users) {
+    const resultsContainer = document.getElementById('searchResults');
+    
+    if (users.length === 0) {
+        resultsContainer.innerHTML = '<p class="text-muted text-center">No users found</p>';
+        return;
+    }
+    
+    let html = '';
+    users.forEach(user => {
+        const statusText = user.is_online ? 'Online' : `Last seen ${user.last_seen_at ? new Date(user.last_seen_at).toLocaleString() : 'Unknown'}`;
+        const statusClass = user.is_online ? 'text-success' : 'text-muted';
+        
+        html += `
+            <div class="search-result-item d-flex align-items-center p-2 border-bottom" onclick="startChatWithUser(${user.id})">
+                <img src="${user.avatar || '/images/default-avatar.svg'}" 
+                     alt="${user.name}" 
+                     class="rounded-circle me-3" 
+                     style="width: 40px; height: 40px; object-fit: cover;"
+                     onerror="this.src='/images/default-avatar.svg'">
+                <div class="flex-grow-1">
+                    <div class="fw-bold">${user.name}</div>
+                    <small class="${statusClass}">${statusText}</small>
+                </div>
+                <i class="fas fa-chevron-right text-muted"></i>
+            </div>
+        `;
+    });
+    
+    resultsContainer.innerHTML = html;
+}
+
+function startChatWithUser(userId) {
+    fetch('/chat/start-chat', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user_id: userId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('newChatModal'));
+            modal.hide();
+            
+            // Navigate to conversation with cache busting
+            window.location.href = data.conversation_url + '?t=' + Date.now();
+        } else {
+            alert('Error: ' + (data.error || 'Failed to start chat'));
+        }
+    })
+    .catch(error => {
+        console.error('Error starting chat:', error);
+        alert('Error starting chat');
+    });
+}
+
+// Subscribe to conversation updates for all conversations
+function subscribeToConversationUpdates() {
+    const hubUrl = 'http://127.0.0.1:8080/.well-known/mercure';
+    const urlObj = new URL(hubUrl);
+    
+    // Subscribe to all conversation topics for this user
+    const conversationTopics = [];
+    document.querySelectorAll('.user-item').forEach(item => {
+        const userId = parseInt(item.dataset.userId);
+        const topic = `https://chatapp.local/conversation/${Math.min(currentUserId, userId)}-${Math.max(currentUserId, userId)}`;
+        conversationTopics.push(topic);
+    });
+    
+    // Subscribe to each conversation topic
+    conversationTopics.forEach(topic => {
+        const topicUrl = new URL(hubUrl);
+        topicUrl.searchParams.append('topic', topic);
+        
+        fetch('/realtime/auth?' + Date.now(), { credentials: 'include' })
+            .then(() => {
+                const conversationEventSource = new EventSource(topicUrl.toString() + '?' + Date.now(), { withCredentials: true });
+                
+                conversationEventSource.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'message') {
+                        // Update conversation list with new message
+                        updateConversationList(data.message);
+                    }
+                };
+                
+                conversationEventSource.onerror = function(e) {
+                    console.log('Conversation SSE error:', e);
+                };
+            })
+            .catch(err => {
+                console.log('Conversation auth error:', err);
+            });
+    });
+}
+
+// Update conversation list when new messages arrive
+function updateConversationList(message) {
+    const senderId = message.sender_id;
+    const recipientId = message.recipient_id;
+    const otherUserId = senderId === currentUserId ? recipientId : senderId;
+    
+    // Find existing conversation item
+    let conversationItem = document.querySelector(`[data-user-id="${otherUserId}"]`);
+    
+    if (conversationItem) {
+        // Update existing conversation
+        const notificationBadge = conversationItem.querySelector('.notification-badge');
+        
+        if (senderId !== currentUserId) {
+            // Message from other user - increment unread count
+            if (notificationBadge) {
+                const currentCount = parseInt(notificationBadge.textContent) || 0;
+                notificationBadge.textContent = currentCount + 1;
+            } else {
+                // Create new notification badge
+                const badge = document.createElement('span');
+                badge.className = 'notification-badge';
+                badge.textContent = '1';
+                conversationItem.appendChild(badge);
+            }
+        }
+        
+        // Move conversation to top
+        const userList = document.getElementById('userList');
+        userList.insertBefore(conversationItem, userList.firstChild);
+        
+    } else {
+        // New conversation - refresh the entire list
+        refreshConversationList();
+    }
+}
+
+// Refresh conversation list from server
+function refreshConversationList() {
+    fetch('/chat?' + Date.now())
+        .then(response => response.text())
+        .then(html => {
+            // Extract conversation data from the response
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const newConversations = doc.querySelectorAll('.user-item');
+            
+            // Get current conversations
+            const userList = document.getElementById('userList');
+            const currentConversations = userList.querySelectorAll('.user-item');
+            
+            // Clear existing conversations
+            currentConversations.forEach(conv => conv.remove());
+            
+            // Add all new conversations
+            newConversations.forEach(newConv => {
+                const clonedConv = newConv.cloneNode(true);
+                // Re-attach click event
+                clonedConv.onclick = function() {
+                    openConversation(parseInt(clonedConv.dataset.userId));
+                };
+                userList.appendChild(clonedConv);
+            });
+            
+            console.log('Conversation list refreshed with', newConversations.length, 'conversations');
+        })
+        .catch(error => {
+            console.error('Error refreshing conversation list:', error);
+        });
+}
+</script>
+{% endblock %}

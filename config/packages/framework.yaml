@@ -3,7 +3,23 @@ framework:
     secret: '%env(APP_SECRET)%'
 
     # Note that the session will be started ONLY if you read or write from it.
-    session: true
+    session:
+        enabled: true
+        # Use native PHP session handling for better compatibility
+        handler_id: null
+        # Session cookie configuration
+        cookie_lifetime: 0
+        cookie_path: /
+        cookie_httponly: true
+        cookie_secure: false
+        cookie_samesite: 'lax'
+        # Session storage options
+        gc_maxlifetime: 1440
+        gc_probability: 1
+        gc_divisor: 1000
+    
+    # CSRF Protection
+    csrf_protection: false
 
     #esi: true
     #fragments: true

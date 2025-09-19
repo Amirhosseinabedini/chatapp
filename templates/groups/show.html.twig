@@ -1,0 +1,618 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ group.name }}{% endblock %}
+
+{% block body %}
+<div class="container-fluid p-0">
+    <div class="chat-container">
+        <!-- Sidebar -->
+        <div class="chat-sidebar">
+            <!-- Group Info -->
+            <div class="p-3 border-bottom">
+                <div class="d-flex align-items-center mb-2">
+                    <img src="{{ group.avatar ?: '/images/default-avatar.svg' }}"
+                         alt="{{ group.name }}"
+                         class="user-avatar me-3"
+                         onerror="this.src='/images/default-avatar.svg'">
+                    <div>
+                        <h5 class="mb-0">
+                            {{ group.name }}
+                            {% if is_admin %}
+                                <span class="badge bg-danger ms-2">Admin View</span>
+                            {% endif %}
+                        </h5>
+                        <small class="text-muted">{{ group.memberCount }} members</small>
+                    </div>
+                </div>
+
+                {% if group.description %}
+                <p class="small text-muted mb-2">{{ group.description }}</p>
+                {% endif %}
+
+                <div class="d-flex gap-2">
+                    <a href="{{ path('app_groups_index') }}?t={{ 'now'|date('U') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-arrow-left me-1"></i>Back
+                    </a>
+
+                    {% if user_role == 'owner' or user_role == 'moderator' or is_admin %}
+                    <button class="btn btn-outline-primary btn-sm" onclick="showInviteModal()">
+                        <i class="fas fa-share me-1"></i>Invite
+                    </button>
+                    {% endif %}
+
+                    {% if user_role == 'owner' or user_role == 'moderator' or is_admin %}
+                    <a href="{{ path('app_groups_manage_members', {id: group.id}) }}?t={{ 'now'|date('U') }}" class="btn btn-outline-info btn-sm">
+                        <i class="fas fa-users me-1"></i>Members
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Members List -->
+            <div class="p-3">
+                <h6 class="text-muted mb-2">Members ({{ group.memberCount }})</h6>
+                <div class="members-list" style="max-height: 300px; overflow-y: auto;">
+                    {% for member in members %}
+                    <div class="d-flex align-items-center mb-2" data-user-id="{{ member.user.id }}">
+                        <img src="{{ member.user.avatar ?: '/images/default-avatar.svg' }}"
+                             alt="{{ member.user.displayNameOrEmail }}"
+                             class="rounded-circle me-2"
+                             width="32" height="32"
+                             onerror="this.src='/images/default-avatar.svg'">
+                        <div class="flex-grow-1">
+                            <div class="small">{{ member.user.displayNameOrEmail }}</div>
+                            <div class="small text-muted">
+                                {% if member.role == 'owner' %}
+                                    <i class="fas fa-crown text-warning"></i> Owner
+                                {% elseif member.role == 'moderator' %}
+                                    <i class="fas fa-shield-alt text-info"></i> Moderator
+                                {% else %}
+                                    <i class="fas fa-user text-muted"></i> Member
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% if member.user.isOnline %}
+                            <div class="online-indicator"></div>
+                        {% else %}
+                            <div class="offline-indicator"></div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Pinned Messages -->
+            {% if pinned_messages is not empty %}
+            <div class="p-3 border-top">
+                <h6 class="text-muted mb-2">Pinned Messages</h6>
+                {% for message in pinned_messages %}
+                <div class="pinned-message mb-2 p-2 bg-light rounded">
+                    <div class="small text-muted">{{ message.sender.displayNameOrEmail }}</div>
+                    <div class="small">{{ message.content|slice(0, 50) }}{% if message.content|length > 50 %}...{% endif %}</div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Main Chat Area -->
+        <div class="chat-main">
+            <!-- Messages Area -->
+            <div class="message-area" id="messageArea">
+                {% for message in messages %}
+                <div class="message {% if message.sender.id == current_user.id %}sent{% else %}received{% endif %}">
+                    <div class="message-content">
+                        {% if message.replyTo %}
+                        <div class="reply-to mb-2 p-2 bg-light rounded">
+                            <div class="small text-muted">{{ message.replyTo.sender.displayNameOrEmail }}</div>
+                            <div class="small">{{ message.replyTo.content|slice(0, 100) }}{% if message.replyTo.content|length > 100 %}...{% endif %}</div>
+                        </div>
+                        {% endif %}
+
+                        {% if message.messageType == 'image' and message.filePath %}
+                            <img src="{{ message.filePath }}" alt="{{ message.fileName }}" class="img-fluid" style="max-width: 300px; border-radius: 8px;">
+                        {% elseif message.messageType == 'document' and message.filePath %}
+                            <div class="file-message">
+                                <i class="fas fa-file-alt fa-2x mb-2"></i>
+                                <div class="file-name">{{ message.fileName }}</div>
+                                <div class="file-size">{{ message.fileSize|formatFileSize }}</div>
+                                <a href="/upload/download/{{ message.filePath|split('/')|last }}" class="btn btn-sm btn-outline-primary mt-2">
+                                    <i class="fas fa-download me-1"></i>Download
+                                </a>
+                            </div>
+                        {% else %}
+                            {{ message.content|nl2br }}
+                        {% endif %}
+
+                        {% if message.isEdited %}
+                            <div class="small text-muted mt-1">
+                                <i class="fas fa-edit"></i> edited
+                            </div>
+                        {% endif %}
+
+                        {% if message.reactions is not empty %}
+                        <div class="reactions mt-2">
+                            {% for emoji, users in message.reactions %}
+                            <span class="reaction-item" onclick="toggleReaction({{ message.id }}, '{{ emoji }}')">
+                                {{ emoji }} {{ users|length }}
+                            </span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <div class="message-meta">
+                            <span class="message-time">{{ message.createdAt|date('g:i A') }}</span>
+                            {% if message.isPinned %}
+                                <i class="fas fa-thumbtack text-warning ms-1" title="Pinned"></i>
+                            {% endif %}
+                            <button class="btn btn-sm btn-outline-secondary ms-2" onclick="showEmojiPicker((emoji) => addReactionToMessage({{ message.id }}, emoji))">
+                                <i class="fas fa-smile"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+
+                <!-- Typing Indicator -->
+                <div class="typing-indicator" id="typingIndicator" style="display: none;">
+                    <span id="typingText"></span>
+                </div>
+            </div>
+
+            <!-- Message Input -->
+            <div class="message-input-area">
+                <div class="message-input-group">
+                    <input type="file"
+                           id="fileInput"
+                           style="display: none;"
+                           accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip,.rar"
+                           onchange="uploadFile()">
+                    <button class="btn btn-outline-secondary me-2" onclick="document.getElementById('fileInput').click()">
+                        <i class="fas fa-paperclip"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary me-2" onclick="showEmojiPicker(addEmojiToInput)">
+                        <i class="fas fa-smile"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary me-2" onclick="showGifPicker(addGifToInput)">
+                        <i class="fas fa-image"></i>
+                    </button>
+                    <textarea class="message-input"
+                              id="messageInput"
+                              placeholder="Type a message..."
+                              rows="1"
+                              onkeydown="handleKeyDown(event)"
+                              oninput="handleTyping()"></textarea>
+                    <button class="btn btn-primary send-button" onclick="sendMessage()">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Invite Modal -->
+<div class="modal fade" id="inviteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Invite to {{ group.name }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="inviteCode" class="form-label">Invite Code</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="inviteCode" readonly>
+                        <button class="btn btn-outline-secondary" onclick="copyInviteCode()">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="inviteLink" class="form-label">Invite Link</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="inviteLink" readonly>
+                        <button class="btn btn-outline-secondary" onclick="copyInviteLink()">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    This invite code expires in 7 days.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="generateNewInvite()">Generate New Code</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Include Emoji Picker -->
+{% include 'components/emoji_picker.html.twig' %}
+
+<script>
+let currentUserId = {{ current_user.id }};
+let groupId = {{ group.id }};
+let eventSource = null;
+let typingTimer = null;
+
+// Initialize group chat
+document.addEventListener('DOMContentLoaded', function() {
+    // Force refresh messages on page load
+    refreshMessages();
+    
+    subscribeToGroup();
+    scrollToBottom();
+    
+    // Refresh member status on page load and periodically
+    refreshMemberStatus();
+    setInterval(refreshMemberStatus, 30000); // Refresh every 30 seconds
+});
+
+function subscribeToGroup() {
+    const topic = `https://chatapp.local/group/${groupId}`;
+    const hubUrl = 'http://127.0.0.1:8080/.well-known/mercure';
+    const urlObj = new URL(hubUrl);
+    urlObj.searchParams.append('topic', topic);
+
+    fetch('/realtime/auth?' + Date.now(), { credentials: 'include' })
+        .then(() => {
+            eventSource = new EventSource(urlObj.toString() + '?' + Date.now(), { withCredentials: true });
+
+            eventSource.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+
+                if (data.type === 'group_message') {
+                    addMessage(data.message);
+                    scrollToBottom();
+                } else if (data.type === 'group_message_update') {
+                    updateMessage(data.message);
+                } else if (data.type === 'group_message_delete') {
+                    removeMessage(data.message_id);
+                } else if (data.type === 'group_message_reaction') {
+                    updateReactions(data.message_id, data.reactions);
+                } else if (data.type === 'presence') {
+                    // Handle presence updates
+                    updateUserStatus(data.user_id, data.status === 'online', data.last_seen_at);
+                }
+            };
+
+            eventSource.onerror = function(e) {
+                console.log('SSE error:', e);
+                // Try to reconnect after 5 seconds
+                setTimeout(() => {
+                    if (eventSource && eventSource.readyState === EventSource.CLOSED) {
+                        console.log('Attempting to reconnect...');
+                        subscribeToGroup();
+                    }
+                }, 5000);
+            };
+        })
+        .catch(err => {
+            console.log('Auth error:', err);
+        });
+}
+
+function addMessage(message) {
+    const messageArea = document.getElementById('messageArea');
+    const isSent = message.sender_id === currentUserId;
+
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${isSent ? 'sent' : 'received'}`;
+    messageDiv.id = `message-${message.id}`;
+
+    let content = message.content.replace(/\n/g, '<br>');
+
+    // Handle file messages
+    if (message.message_type === 'image' && message.file_path) {
+        content = `<img src="${message.file_path}" alt="${message.file_name}" class="img-fluid" style="max-width: 300px; border-radius: 8px;">`;
+    } else if (message.message_type === 'document' && message.file_path) {
+        const fileSize = formatFileSize(message.file_size);
+        content = `
+            <div class="file-message">
+                <i class="fas fa-file-alt fa-2x mb-2"></i>
+                <div class="file-name">${message.file_name}</div>
+                <div class="file-size">${fileSize}</div>
+                <a href="/upload/download/${message.file_path.split('/').pop()}" class="btn btn-sm btn-outline-primary mt-2">
+                    <i class="fas fa-download me-1"></i>Download
+                </a>
+            </div>
+        `;
+    }
+
+    const time = new Date(message.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+    messageDiv.innerHTML = `
+        <div class="message-content">
+            ${content}
+            <div class="message-meta">
+                <span class="message-time">${time}</span>
+            </div>
+        </div>
+    `;
+
+    messageArea.appendChild(messageDiv);
+}
+
+function sendMessage() {
+    const messageInput = document.getElementById('messageInput');
+    const content = messageInput.value.trim();
+
+    if (!content) return;
+
+    // Clear input immediately for better UX
+    messageInput.value = '';
+    messageInput.style.height = 'auto';
+
+    fetch('/group-messages/send?' + Date.now(), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            group_id: groupId,
+            content: content,
+            message_type: 'text'
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            console.log('Message sent successfully:', data);
+            // Message will be added via Mercure real-time update
+        } else {
+            console.error('Server error:', data.error);
+            // Restore message if failed
+            messageInput.value = content;
+            alert('Failed to send message: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error sending message:', error);
+        // Restore message if failed
+        messageInput.value = content;
+        alert('Failed to send message: ' + error.message);
+    });
+}
+
+function handleKeyDown(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
+    }
+}
+
+function handleTyping() {
+    const messageInput = document.getElementById('messageInput');
+
+    messageInput.style.height = 'auto';
+    messageInput.style.height = messageInput.scrollHeight + 'px';
+}
+
+function scrollToBottom() {
+    const messageArea = document.getElementById('messageArea');
+    messageArea.scrollTop = messageArea.scrollHeight;
+}
+
+function showInviteModal() {
+    // Generate invite code first
+    generateNewInvite();
+    const modal = new bootstrap.Modal(document.getElementById('inviteModal'));
+    modal.show();
+}
+
+function generateNewInvite() {
+    fetch(`/groups/${groupId}/invite`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('inviteCode').value = data.invite_code;
+            document.getElementById('inviteLink').value = `${window.location.origin}/groups/join/${data.invite_code}`;
+        }
+    });
+}
+
+function copyInviteCode() {
+    const inviteCode = document.getElementById('inviteCode');
+    inviteCode.select();
+    document.execCommand('copy');
+    alert('Invite code copied to clipboard!');
+}
+
+function copyInviteLink() {
+    const inviteLink = document.getElementById('inviteLink');
+    inviteLink.select();
+    document.execCommand('copy');
+    alert('Invite link copied to clipboard!');
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function updateUserStatus(userId, isOnline, lastSeenAt) {
+    const userElement = document.querySelector(`[data-user-id="${userId}"]`);
+    if (userElement) {
+        const onlineIndicator = userElement.querySelector('.online-indicator');
+        const offlineIndicator = userElement.querySelector('.offline-indicator');
+        
+        if (isOnline) {
+            if (onlineIndicator) onlineIndicator.style.display = 'block';
+            if (offlineIndicator) offlineIndicator.style.display = 'none';
+        } else {
+            if (onlineIndicator) onlineIndicator.style.display = 'none';
+            if (offlineIndicator) offlineIndicator.style.display = 'block';
+        }
+    }
+}
+
+function refreshMemberStatus() {
+    // Fetch fresh member data to update online status
+    fetch(`/groups/${groupId}/members?refresh=${Date.now()}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.members) {
+                data.members.forEach(member => {
+                    updateUserStatus(member.user.id, member.user.is_online, member.user.last_seen_at);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error refreshing member status:', error);
+        });
+}
+
+function refreshMessages() {
+    fetch(`/groups/${groupId}?` + Date.now())
+        .then(response => response.text())
+        .then(html => {
+            // Extract messages from the response
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const newMessages = doc.querySelectorAll('.message');
+            
+            // Get current messages
+            const messageArea = document.getElementById('messageArea');
+            const currentMessages = messageArea.querySelectorAll('.message');
+            
+            // Clear existing messages
+            currentMessages.forEach(msg => msg.remove());
+            
+            // Add all new messages
+            newMessages.forEach(newMsg => {
+                const clonedMsg = newMsg.cloneNode(true);
+                messageArea.appendChild(clonedMsg);
+            });
+            
+            // Scroll to bottom
+            scrollToBottom();
+            
+            console.log('Messages refreshed with', newMessages.length, 'messages');
+        })
+        .catch(error => {
+            console.error('Error refreshing messages:', error);
+        });
+}
+
+function addEmojiToInput(emoji) {
+    const messageInput = document.getElementById('messageInput');
+    const cursorPos = messageInput.selectionStart;
+    const textBefore = messageInput.value.substring(0, cursorPos);
+    const textAfter = messageInput.value.substring(messageInput.selectionEnd);
+
+    messageInput.value = textBefore + emoji + textAfter;
+    messageInput.selectionStart = messageInput.selectionEnd = cursorPos + emoji.length;
+    messageInput.focus();
+
+    // Trigger input event to resize textarea
+    messageInput.dispatchEvent(new Event('input'));
+}
+
+function addGifToInput(gif) {
+    const messageInput = document.getElementById('messageInput');
+    const cursorPos = messageInput.selectionStart;
+    const textBefore = messageInput.value.substring(0, cursorPos);
+    const textAfter = messageInput.value.substring(messageInput.selectionEnd);
+
+    // Add GIF as a special message type
+    const gifText = `[GIF:${gif.url}]`;
+    messageInput.value = textBefore + gifText + textAfter;
+    messageInput.selectionStart = messageInput.selectionEnd = cursorPos + gifText.length;
+    messageInput.focus();
+
+    // Trigger input event to resize textarea
+    messageInput.dispatchEvent(new Event('input'));
+}
+
+function toggleReaction(messageId, emoji) {
+    fetch(`/group-messages/${messageId}/reaction`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            emoji: emoji,
+            action: 'toggle'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update reactions display
+            updateReactionsDisplay(messageId, data.reactions);
+        }
+    })
+    .catch(error => {
+        console.error('Error toggling reaction:', error);
+    });
+}
+
+function updateReactionsDisplay(messageId, reactions) {
+    const messageElement = document.getElementById(`message-${messageId}`);
+    if (!messageElement) return;
+
+    let reactionsHtml = '';
+    if (reactions && Object.keys(reactions).length > 0) {
+        reactionsHtml = '<div class="reactions mt-2">';
+        for (const [emoji, users] of Object.entries(reactions)) {
+            const count = users.length;
+            reactionsHtml += `<span class="reaction-item" onclick="toggleReaction(${messageId}, '${emoji}')">${emoji} ${count}</span>`;
+        }
+        reactionsHtml += '</div>';
+    }
+
+    // Find existing reactions div and replace it
+    const existingReactions = messageElement.querySelector('.reactions');
+    if (existingReactions) {
+        existingReactions.outerHTML = reactionsHtml;
+    } else if (reactionsHtml) {
+        // Add reactions div before message-meta
+        const messageMeta = messageElement.querySelector('.message-meta');
+        if (messageMeta) {
+            messageMeta.insertAdjacentHTML('beforebegin', reactionsHtml);
+        }
+    }
+}
+
+function addReactionToMessage(messageId, emoji) {
+    fetch(`/group-messages/${messageId}/reaction`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            emoji: emoji,
+            action: 'add'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update reactions display
+            updateReactionsDisplay(messageId, data.reactions);
+        }
+    })
+    .catch(error => {
+        console.error('Error adding reaction:', error);
+    });
+}
+</script>
+{% endblock %}

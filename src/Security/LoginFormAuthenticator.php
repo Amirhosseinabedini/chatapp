@@ -36,7 +36,6 @@ class LoginFormAuthenticator extends AbstractLoginFormAuthenticator
             new UserBadge($email),
             new PasswordCredentials($request->getPayload()->getString('password')),
             [
-                new CsrfTokenBadge('authenticate', $request->getPayload()->getString('_csrf_token')),
                 new RememberMeBadge(),
             ]
         );
@@ -48,8 +47,8 @@ class LoginFormAuthenticator extends AbstractLoginFormAuthenticator
             return new RedirectResponse($targetPath);
         }
 
-        // Redirect to realtime chat page after successful login
-        return new RedirectResponse($this->urlGenerator->generate('app_realtime_index'));
+        // Redirect to groups page after successful login
+        return new RedirectResponse($this->urlGenerator->generate('app_groups_index'));
     }
 
     protected function getLoginUrl(Request $request): string

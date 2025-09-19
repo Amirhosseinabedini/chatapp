@@ -1,0 +1,238 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Groups{% endblock %}
+
+{% block body %}
+<div class="container-fluid p-0">
+    <div class="chat-container">
+        <!-- Sidebar -->
+        <div class="chat-sidebar">
+            <!-- Create Group Button -->
+            <div class="p-3 border-bottom">
+                <button class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#createGroupModal">
+                    <i class="fas fa-plus me-2"></i>Create Group
+                </button>
+            </div>
+            
+            <!-- Join Group -->
+            <div class="p-3 border-bottom">
+                <div class="input-group">
+                    <input type="text" class="form-control" placeholder="Invite code..." id="inviteCodeInput">
+                    <button class="btn btn-outline-secondary" onclick="joinGroup()">
+                        <i class="fas fa-sign-in-alt"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Search -->
+            <div class="search-box">
+                <input type="text" class="search-input" placeholder="Search groups..." id="groupSearchInput">
+            </div>
+            
+            <!-- Group List -->
+            <div class="user-list" id="groupList">
+                <!-- My Groups -->
+                <div class="p-2">
+                    <h6 class="text-muted mb-2">My Groups</h6>
+                    {% for group in user_groups %}
+                    <div class="user-item" onclick="openGroup({{ group.id }})">
+                        <img src="{{ group.avatar ?: '/images/default-avatar.svg' }}" 
+                             alt="{{ group.name }}" 
+                             class="user-avatar"
+                             onerror="this.src='/images/default-avatar.svg'">
+                        <div class="user-info">
+                            <div class="user-name">{{ group.name }}</div>
+                            <div class="user-status">
+                                {% if group.isPublic %}
+                                    <span class="text-success">Public</span>
+                                {% else %}
+                                    <span class="text-muted">Private</span>
+                                {% endif %}
+                                • {{ group.memberCount }} members
+                            </div>
+                        </div>
+                        {% if group.userRole(current_user) == 'owner' %}
+                            <i class="fas fa-crown text-warning"></i>
+                        {% elseif group.userRole(current_user) == 'moderator' %}
+                            <i class="fas fa-shield-alt text-info"></i>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Public Groups -->
+                {% if public_groups is not empty %}
+                <div class="p-2">
+                    <h6 class="text-muted mb-2">Public Groups</h6>
+                    {% for group in public_groups %}
+                    <div class="user-item" onclick="openGroup({{ group.id }})">
+                        <img src="{{ group.avatar ?: '/images/default-avatar.svg' }}" 
+                             alt="{{ group.name }}" 
+                             class="user-avatar"
+                             onerror="this.src='/images/default-avatar.svg'">
+                        <div class="user-info">
+                            <div class="user-name">{{ group.name }}</div>
+                            <div class="user-status">
+                                <span class="text-success">Public</span>
+                                • {{ group.memberCount }} members
+                            </div>
+                        </div>
+                        <i class="fas fa-globe text-success"></i>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                
+                {% if user_groups is empty and public_groups is empty %}
+                <div class="text-center text-muted p-4">
+                    <i class="fas fa-users fa-3x mb-3"></i>
+                    <p>No groups found. Create your first group!</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Main Area -->
+        <div class="chat-main">
+            <div class="d-flex align-items-center justify-content-center h-100 text-muted">
+                <div class="text-center">
+                    <i class="fas fa-users fa-4x mb-3"></i>
+                    <h4>Group Chat</h4>
+                    <p>Select a group to start chatting or create a new one</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Group Modal -->
+<div class="modal fade" id="createGroupModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create New Group</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createGroupForm">
+                    <div class="mb-3">
+                        <label for="groupName" class="form-label">Group Name</label>
+                        <input type="text" class="form-control" id="groupName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="groupDescription" class="form-label">Description (Optional)</label>
+                        <textarea class="form-control" id="groupDescription" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="isPublic">
+                            <label class="form-check-label" for="isPublic">
+                                Make this group public
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="createGroup()">Create Group</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function openGroup(groupId) {
+    window.location.href = `/groups/${groupId}`;
+}
+
+function createGroup() {
+    const name = document.getElementById('groupName').value.trim();
+    const description = document.getElementById('groupDescription').value.trim();
+    const isPublic = document.getElementById('isPublic').checked;
+    
+    if (!name) {
+        alert('Group name is required');
+        return;
+    }
+    
+    fetch('/groups/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            name: name,
+            description: description,
+            is_public: isPublic
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('createGroupModal'));
+            modal.hide();
+            
+            // Reset form
+            document.getElementById('createGroupForm').reset();
+            
+            // Redirect to group
+            window.location.href = `/groups/${data.group_id}`;
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error creating group:', error);
+        alert('Failed to create group');
+    });
+}
+
+function joinGroup() {
+    const inviteCode = document.getElementById('inviteCodeInput').value.trim();
+    
+    if (!inviteCode) {
+        alert('Please enter an invite code');
+        return;
+    }
+    
+    fetch(`/groups/join/${inviteCode}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('inviteCodeInput').value = '';
+            alert(`Successfully joined "${data.group_name}"!`);
+            window.location.href = `/groups/${data.group_id}`;
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error joining group:', error);
+        alert('Failed to join group');
+    });
+}
+
+// Search functionality
+document.getElementById('groupSearchInput').addEventListener('input', function(e) {
+    const query = e.target.value.toLowerCase();
+    const groupItems = document.querySelectorAll('.user-item');
+    
+    groupItems.forEach(item => {
+        const groupName = item.querySelector('.user-name').textContent.toLowerCase();
+        if (groupName.includes(query)) {
+            item.style.display = 'flex';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+});
+</script>
+{% endblock %}
+

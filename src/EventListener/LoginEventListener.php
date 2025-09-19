@@ -2,6 +2,8 @@
 
 namespace App\EventListener;
 
+use App\Entity\User;
+use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -12,7 +14,8 @@ class LoginEventListener
 {
     public function __construct(
         private LoggerInterface $logger,
-        private RequestStack $requestStack
+        private RequestStack $requestStack,
+        private EntityManagerInterface $entityManager
     ) {
     }
 
@@ -20,6 +23,13 @@ class LoginEventListener
     {
         $user = $event->getUser();
         $request = $this->requestStack->getCurrentRequest();
+        
+        // Update user's online status
+        if ($user instanceof User) {
+            $user->setIsOnline(true);
+            $user->setLastSeenAt(new \DateTimeImmutable());
+            $this->entityManager->flush();
+        }
         
         // Get client IP address
         $clientIp = $request ? $request->getClientIp() : 'unknown';

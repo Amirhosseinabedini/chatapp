@@ -1,0 +1,319 @@
+<!-- Emoji Picker Modal -->
+<div class="modal fade" id="emojiPickerModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Choose Emoji</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Search -->
+                <div class="mb-3">
+                    <input type="text" class="form-control" id="emojiSearch" placeholder="Search emojis...">
+                </div>
+                
+                <!-- Categories -->
+                <ul class="nav nav-tabs" id="emojiTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="popular-tab" data-bs-toggle="tab" data-bs-target="#popular" type="button">
+                            Popular
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="smileys-tab" data-bs-toggle="tab" data-bs-target="#smileys" type="button">
+                            😀 Smileys
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="animals-tab" data-bs-toggle="tab" data-bs-target="#animals" type="button">
+                            🐶 Animals
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="food-tab" data-bs-toggle="tab" data-bs-target="#food" type="button">
+                            🍕 Food
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="activities-tab" data-bs-toggle="tab" data-bs-target="#activities" type="button">
+                            ⚽ Activities
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="symbols-tab" data-bs-toggle="tab" data-bs-target="#symbols" type="button">
+                            ❤️ Symbols
+                        </button>
+                    </li>
+                </ul>
+                
+                <!-- Tab Content -->
+                <div class="tab-content" id="emojiTabContent">
+                    <div class="tab-pane fade show active" id="popular" role="tabpanel">
+                        <div class="emoji-grid" id="popularEmojis">
+                            <!-- Popular emojis will be loaded here -->
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="smileys" role="tabpanel">
+                        <div class="emoji-grid" id="smileysEmojis">
+                            <!-- Smileys will be loaded here -->
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="animals" role="tabpanel">
+                        <div class="emoji-grid" id="animalsEmojis">
+                            <!-- Animals will be loaded here -->
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="food" role="tabpanel">
+                        <div class="emoji-grid" id="foodEmojis">
+                            <!-- Food will be loaded here -->
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="activities" role="tabpanel">
+                        <div class="emoji-grid" id="activitiesEmojis">
+                            <!-- Activities will be loaded here -->
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="symbols" role="tabpanel">
+                        <div class="emoji-grid" id="symbolsEmojis">
+                            <!-- Symbols will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- GIF Picker Modal -->
+<div class="modal fade" id="gifPickerModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Choose GIF</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Search -->
+                <div class="mb-3">
+                    <input type="text" class="form-control" id="gifSearch" placeholder="Search GIFs...">
+                </div>
+                
+                <!-- Trending GIFs -->
+                <div class="mb-3">
+                    <h6>Trending</h6>
+                    <div class="gif-grid" id="trendingGifs">
+                        <!-- Trending GIFs will be loaded here -->
+                    </div>
+                </div>
+                
+                <!-- Search Results -->
+                <div id="gifSearchResults" style="display: none;">
+                    <h6>Search Results</h6>
+                    <div class="gif-grid" id="searchGifs">
+                        <!-- Search results will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.emoji-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+    gap: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 1rem 0;
+}
+
+.emoji-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    font-size: 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.emoji-item:hover {
+    background-color: rgba(0,0,0,0.1);
+}
+
+.gif-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 8px;
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 1rem 0;
+}
+
+.gif-item {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.gif-item:hover {
+    transform: scale(1.05);
+}
+
+.gif-item img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.gif-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.gif-item:hover .gif-overlay {
+    opacity: 1;
+}
+
+.gif-overlay i {
+    color: white;
+    font-size: 24px;
+}
+</style>
+
+<script>
+let selectedEmojiCallback = null;
+let selectedGifCallback = null;
+
+function showEmojiPicker(callback) {
+    selectedEmojiCallback = callback;
+    const modal = new bootstrap.Modal(document.getElementById('emojiPickerModal'));
+    modal.show();
+    loadEmojiCategories();
+}
+
+function showGifPicker(callback) {
+    selectedGifCallback = callback;
+    const modal = new bootstrap.Modal(document.getElementById('gifPickerModal'));
+    modal.show();
+    loadTrendingGifs();
+}
+
+function loadEmojiCategories() {
+    // Load popular emojis
+    fetch('/emoji/popular')
+        .then(response => response.json())
+        .then(data => {
+            displayEmojis('popularEmojis', data.emojis);
+        });
+
+    // Load categories
+    fetch('/emoji/categories')
+        .then(response => response.json())
+        .then(data => {
+            Object.keys(data.categories).forEach(category => {
+                displayEmojis(category + 'Emojis', data.categories[category].emojis);
+            });
+        });
+}
+
+function displayEmojis(containerId, emojis) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    
+    emojis.forEach(emoji => {
+        const emojiItem = document.createElement('div');
+        emojiItem.className = 'emoji-item';
+        emojiItem.textContent = emoji;
+        emojiItem.onclick = () => selectEmoji(emoji);
+        container.appendChild(emojiItem);
+    });
+}
+
+function selectEmoji(emoji) {
+    if (selectedEmojiCallback) {
+        selectedEmojiCallback(emoji);
+    }
+    bootstrap.Modal.getInstance(document.getElementById('emojiPickerModal')).hide();
+}
+
+function loadTrendingGifs() {
+    fetch('/emoji/gif/trending')
+        .then(response => response.json())
+        .then(data => {
+            displayGifs('trendingGifs', data.gifs);
+        });
+}
+
+function displayGifs(containerId, gifs) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    
+    gifs.forEach(gif => {
+        const gifItem = document.createElement('div');
+        gifItem.className = 'gif-item';
+        gifItem.innerHTML = `
+            <img src="${gif.preview}" alt="${gif.title}" loading="lazy">
+            <div class="gif-overlay">
+                <i class="fas fa-plus"></i>
+            </div>
+        `;
+        gifItem.onclick = () => selectGif(gif);
+        container.appendChild(gifItem);
+    });
+}
+
+function selectGif(gif) {
+    if (selectedGifCallback) {
+        selectedGifCallback(gif);
+    }
+    bootstrap.Modal.getInstance(document.getElementById('gifPickerModal')).hide();
+}
+
+// Search functionality
+document.getElementById('emojiSearch').addEventListener('input', function(e) {
+    const query = e.target.value.trim();
+    if (query.length > 0) {
+        fetch(`/emoji/search?q=${encodeURIComponent(query)}&limit=50`)
+            .then(response => response.json())
+            .then(data => {
+                // Show search results in all tabs
+                const containers = ['popularEmojis', 'smileysEmojis', 'animalsEmojis', 'foodEmojis', 'activitiesEmojis', 'symbolsEmojis'];
+                containers.forEach(containerId => {
+                    displayEmojis(containerId, data.emojis);
+                });
+            });
+    } else {
+        loadEmojiCategories();
+    }
+});
+
+document.getElementById('gifSearch').addEventListener('input', function(e) {
+    const query = e.target.value.trim();
+    if (query.length >= 2) {
+        fetch(`/emoji/gif/search?q=${encodeURIComponent(query)}&limit=20`)
+            .then(response => response.json())
+            .then(data => {
+                displayGifs('searchGifs', data.gifs);
+                document.getElementById('gifSearchResults').style.display = 'block';
+            });
+    } else {
+        document.getElementById('gifSearchResults').style.display = 'none';
+    }
+});
+</script>
+

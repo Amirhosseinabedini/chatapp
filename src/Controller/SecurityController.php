@@ -24,7 +24,7 @@ class SecurityController extends AbstractController
                 'user_id' => $this->getUser()->getUserIdentifier(),
                 'timestamp' => new \DateTime(),
             ]);
-            return $this->redirectToRoute('app_realtime_index');
+            return $this->redirectToRoute('app_groups_index');
         }
 
         // Get the login error if there is one
@@ -46,6 +46,8 @@ class SecurityController extends AbstractController
     #[Route(path: '/logout', name: 'app_logout')]
     public function logout(): void
     {
+        // This method can be blank - it will be intercepted by the logout key on your firewall.
+        // The LogoutEventListener will handle the actual cleanup.
         throw new \LogicException('This method can be blank - it will be intercepted by the logout key on your firewall.');
     }
 }

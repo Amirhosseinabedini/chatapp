@@ -57,4 +57,31 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
     //            ->getOneOrNullResult()
     //        ;
     //    }
+
+    /**
+     * Search users by email, display name, or email (as username)
+     * @param string $query
+     * @param User $currentUser
+     * @return User[]
+     */
+    public function searchUsers(string $query, User $currentUser): array
+    {
+        $qb = $this->createQueryBuilder('u')
+            ->where('u.id != :currentUserId')
+            ->setParameter('currentUserId', $currentUser->getId());
+
+        // Search in email, display name, or email (as username)
+        $qb->andWhere(
+            $qb->expr()->orX(
+                $qb->expr()->like('LOWER(u.email)', ':query'),
+                $qb->expr()->like('LOWER(u.displayName)', ':query')
+            )
+        )
+        ->setParameter('query', '%' . strtolower($query) . '%')
+        ->orderBy('u.isOnline', 'DESC')
+        ->addOrderBy('u.displayName', 'ASC')
+        ->setMaxResults(20);
+
+        return $qb->getQuery()->getResult();
+    }
 }

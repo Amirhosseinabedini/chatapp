@@ -1,0 +1,548 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Chat with {{ other_user.displayNameOrEmail }}{% endblock %}
+
+{% block body %}
+<div class="container-fluid p-0">
+    <div class="chat-container">
+        <!-- Sidebar -->
+        <div class="chat-sidebar">
+            <!-- Back Button -->
+            <div class="p-3 border-bottom">
+                <a href="{{ path('app_chat_index') }}?t={{ 'now'|date('U') }}" class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Conversations
+                </a>
+            </div>
+            
+            <!-- User Info -->
+            <div class="p-3 border-bottom">
+                <div class="d-flex align-items-center">
+                    <img src="{{ other_user.avatar ?: '/images/default-avatar.svg' }}" 
+                         alt="{{ other_user.displayNameOrEmail }}" 
+                         class="user-avatar"
+                         onerror="this.src='/images/default-avatar.svg'">
+                    <div class="user-info">
+                        <div class="user-name">{{ other_user.displayNameOrEmail }}</div>
+                        <div class="user-status">
+                            {% if other_user.isOnline %}
+                                <span class="text-success">Online</span>
+                            {% else %}
+                                <span class="text-muted">
+                                    Last seen {{ other_user.lastSeenAt ? other_user.lastSeenAt|date('M j, g:i A') : 'Unknown' }}
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if other_user.isOnline %}
+                        <div class="online-indicator"></div>
+                    {% else %}
+                        <div class="offline-indicator"></div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Search Messages -->
+            <div class="search-box">
+                <input type="text" class="search-input" placeholder="Search messages..." id="messageSearchInput">
+            </div>
+            
+            <!-- Message History -->
+            <div class="user-list" id="messageHistory">
+                <div class="text-center p-3">
+                    <button class="btn btn-outline-secondary btn-sm" onclick="loadMoreMessages()">
+                        <i class="fas fa-history me-2"></i>Load More Messages
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Chat Area -->
+        <div class="chat-main">
+            <!-- Messages Area -->
+            <div class="message-area" id="messageArea">
+                {% for message in messages %}
+                <div class="message {% if message.sender.id == current_user.id %}sent{% else %}received{% endif %}">
+                    <div class="message-content">
+                        {{ message.content|nl2br }}
+                        <div class="message-meta">
+                            <span class="message-time">{{ message.createdAt|date('g:i A') }}</span>
+                            {% if message.sender.id == current_user.id %}
+                                {% if message.readAt %}
+                                    <i class="fas fa-check-double text-primary ms-1" title="Read"></i>
+                                {% elseif message.deliveredAt %}
+                                    <i class="fas fa-check-double text-muted ms-1" title="Delivered"></i>
+                                {% else %}
+                                    <i class="fas fa-check text-muted ms-1" title="Sent"></i>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                
+                <!-- Typing Indicator -->
+                <div class="typing-indicator" id="typingIndicator" style="display: none;">
+                    <span id="typingText"></span>
+                </div>
+            </div>
+            
+            <!-- Message Input -->
+            <div class="message-input-area">
+                <div class="message-input-group">
+                    <input type="file" 
+                           id="fileInput" 
+                           style="display: none;" 
+                           accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip,.rar"
+                           onchange="uploadFile()">
+                    <button class="btn btn-outline-secondary me-2" onclick="document.getElementById('fileInput').click()">
+                        <i class="fas fa-paperclip"></i>
+                    </button>
+                    <textarea class="message-input" 
+                              id="messageInput" 
+                              placeholder="Type a message..." 
+                              rows="1"
+                              onkeydown="handleKeyDown(event)"
+                              oninput="handleTyping()"></textarea>
+                    <button class="btn btn-primary send-button" onclick="sendMessage()">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentUserId = {{ current_user.id }};
+let otherUserId = {{ other_user.id }};
+let eventSource = null;
+let typingTimer = null;
+let messageOffset = {{ messages|length }};
+let isLoadingMessages = false;
+
+// Initialize chat
+document.addEventListener('DOMContentLoaded', function() {
+    // Force refresh messages on page load
+    refreshMessages();
+    
+    // Set user online with cache busting
+    fetch('/presence/online?' + Date.now(), { method: 'POST' });
+    
+    // Subscribe to conversation updates
+    subscribeToConversation();
+    
+    // Auto-scroll to bottom
+    scrollToBottom();
+    
+    // Set user offline when page unloads
+    window.addEventListener('beforeunload', function() {
+        navigator.sendBeacon('/presence/offline', '');
+    });
+});
+
+function subscribeToConversation() {
+    const topic = `https://chatapp.local/conversation/${Math.min(currentUserId, otherUserId)}-${Math.max(currentUserId, otherUserId)}`;
+    const hubUrl = 'http://127.0.0.1:8080/.well-known/mercure';
+    const urlObj = new URL(hubUrl);
+    urlObj.searchParams.append('topic', topic);
+    
+    // Request subscriber JWT cookie with cache busting
+    fetch('/realtime/auth?' + Date.now(), { credentials: 'include' })
+        .then(() => {
+            eventSource = new EventSource(urlObj.toString() + '?' + Date.now(), { withCredentials: true });
+            
+            eventSource.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                
+                if (data.type === 'message') {
+                    addMessage(data.message);
+                    scrollToBottom();
+                    
+                    // Show notification if not focused
+                    if (document.hidden && data.message.sender_id !== currentUserId) {
+                        showNotification(data.message.sender_name, data.message.content);
+                    }
+                } else if (data.type === 'typing') {
+                    showTypingIndicator(data.user_name, data.typing);
+                }
+            };
+            
+            eventSource.onerror = function(e) {
+                console.log('SSE error:', e);
+                // Try to reconnect after 5 seconds
+                setTimeout(() => {
+                    if (eventSource && eventSource.readyState === EventSource.CLOSED) {
+                        subscribeToConversation();
+                    }
+                }, 5000);
+            };
+        })
+        .catch(err => {
+            console.log('Auth error:', err);
+            // Retry after 5 seconds
+            setTimeout(subscribeToConversation, 5000);
+        });
+}
+
+function addMessage(message) {
+    const messageArea = document.getElementById('messageArea');
+    const isSent = message.sender_id === currentUserId;
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${isSent ? 'sent' : 'received'}`;
+    
+    let statusIcon = '';
+    if (isSent) {
+        if (message.read_at) {
+            statusIcon = '<i class="fas fa-check-double text-primary ms-1" title="Read"></i>';
+        } else if (message.delivered_at) {
+            statusIcon = '<i class="fas fa-check-double text-muted ms-1" title="Delivered"></i>';
+        } else {
+            statusIcon = '<i class="fas fa-check text-muted ms-1" title="Sent"></i>';
+        }
+    }
+    
+    const time = new Date(message.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    
+    let content = message.content.replace(/\n/g, '<br>');
+    
+    // Handle file messages
+    if (message.message_type === 'image' && message.file_path) {
+        content = `<img src="${message.file_path}" alt="${message.file_name}" class="img-fluid" style="max-width: 300px; border-radius: 8px;">`;
+    } else if (message.message_type === 'document' && message.file_path) {
+        const fileSize = formatFileSize(message.file_size);
+        content = `
+            <div class="file-message">
+                <i class="fas fa-file-alt fa-2x mb-2"></i>
+                <div class="file-name">${message.file_name}</div>
+                <div class="file-size">${fileSize}</div>
+                <a href="/upload/download/${message.file_path.split('/').pop()}" class="btn btn-sm btn-outline-primary mt-2">
+                    <i class="fas fa-download me-1"></i>Download
+                </a>
+            </div>
+        `;
+    } else if (message.message_type === 'file' && message.file_path) {
+        const fileSize = formatFileSize(message.file_size);
+        content = `
+            <div class="file-message">
+                <i class="fas fa-file fa-2x mb-2"></i>
+                <div class="file-name">${message.file_name}</div>
+                <div class="file-size">${fileSize}</div>
+                <a href="/upload/download/${message.file_path.split('/').pop()}" class="btn btn-sm btn-outline-primary mt-2">
+                    <i class="fas fa-download me-1"></i>Download
+                </a>
+            </div>
+        `;
+    }
+    
+    messageDiv.innerHTML = `
+        <div class="message-content">
+            ${content}
+            <div class="message-meta">
+                <span class="message-time">${time}</span>
+                ${statusIcon}
+            </div>
+        </div>
+    `;
+    
+    messageArea.appendChild(messageDiv);
+}
+
+function sendMessage() {
+    const messageInput = document.getElementById('messageInput');
+    const content = messageInput.value.trim();
+    
+    if (!content) return;
+    
+    fetch('/chat/send', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            recipient_id: otherUserId,
+            content: content,
+            message_type: 'text'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+            
+            // Stop typing indicator
+            fetch('/presence/typing/' + otherUserId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ typing: false })
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Error sending message:', error);
+    });
+}
+
+function handleKeyDown(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
+    }
+}
+
+function handleTyping() {
+    const messageInput = document.getElementById('messageInput');
+    
+    // Auto-resize textarea
+    messageInput.style.height = 'auto';
+    messageInput.style.height = messageInput.scrollHeight + 'px';
+    
+    // Send typing indicator
+    fetch('/presence/typing/' + otherUserId, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ typing: true })
+    });
+    
+    // Clear previous timer
+    if (typingTimer) {
+        clearTimeout(typingTimer);
+    }
+    
+    // Set timer to stop typing indicator
+    typingTimer = setTimeout(() => {
+        fetch('/presence/typing/' + otherUserId, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ typing: false })
+        });
+    }, 1000);
+}
+
+function showTypingIndicator(userName, isTyping) {
+    const indicator = document.getElementById('typingIndicator');
+    const typingText = document.getElementById('typingText');
+    
+    if (isTyping) {
+        typingText.textContent = `${userName} is typing...`;
+        indicator.style.display = 'block';
+    } else {
+        indicator.style.display = 'none';
+    }
+}
+
+function scrollToBottom() {
+    const messageArea = document.getElementById('messageArea');
+    messageArea.scrollTop = messageArea.scrollHeight;
+}
+
+function loadMoreMessages() {
+    if (isLoadingMessages) return;
+    
+    isLoadingMessages = true;
+    fetch(`/chat/messages/${otherUserId}?offset=${messageOffset}&limit=50`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.messages && data.messages.length > 0) {
+                const messageArea = document.getElementById('messageArea');
+                const scrollHeight = messageArea.scrollHeight;
+                
+                data.messages.reverse().forEach(message => {
+                    const messageDiv = document.createElement('div');
+                    const isSent = message.sender_id === currentUserId;
+                    
+                    let statusIcon = '';
+                    if (isSent) {
+                        if (message.read_at) {
+                            statusIcon = '<i class="fas fa-check-double text-primary ms-1" title="Read"></i>';
+                        } else if (message.delivered_at) {
+                            statusIcon = '<i class="fas fa-check-double text-muted ms-1" title="Delivered"></i>';
+                        } else {
+                            statusIcon = '<i class="fas fa-check text-muted ms-1" title="Sent"></i>';
+                        }
+                    }
+                    
+                    const time = new Date(message.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    
+                    messageDiv.className = `message ${isSent ? 'sent' : 'received'}`;
+                    messageDiv.innerHTML = `
+                        <div class="message-content">
+                            ${message.content.replace(/\n/g, '<br>')}
+                            <div class="message-meta">
+                                <span class="message-time">${time}</span>
+                                ${statusIcon}
+                            </div>
+                        </div>
+                    `;
+                    
+                    messageArea.insertBefore(messageDiv, messageArea.firstChild);
+                });
+                
+                messageOffset += data.messages.length;
+                
+                // Maintain scroll position
+                const newScrollHeight = messageArea.scrollHeight;
+                messageArea.scrollTop = newScrollHeight - scrollHeight;
+                
+                if (!data.has_more) {
+                    document.querySelector('.btn-outline-secondary').style.display = 'none';
+                }
+            }
+            
+            isLoadingMessages = false;
+        })
+        .catch(error => {
+            console.error('Error loading messages:', error);
+            isLoadingMessages = false;
+        });
+}
+
+function showNotification(senderName, content) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(`${senderName} sent a message`, {
+            body: content.length > 100 ? content.substring(0, 100) + '...' : content,
+            icon: '/images/notification-icon.png'
+        });
+    }
+}
+
+// Search messages
+document.getElementById('messageSearchInput').addEventListener('input', function(e) {
+    const query = e.target.value.trim();
+    
+    if (query.length >= 2) {
+        fetch(`/chat/search?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                displaySearchResults(data.messages);
+            })
+            .catch(error => {
+                console.error('Error searching messages:', error);
+            });
+    } else {
+        document.getElementById('messageHistory').innerHTML = `
+            <div class="text-center p-3">
+                <button class="btn btn-outline-secondary btn-sm" onclick="loadMoreMessages()">
+                    <i class="fas fa-history me-2"></i>Load More Messages
+                </button>
+            </div>
+        `;
+    }
+});
+
+function displaySearchResults(messages) {
+    const historyDiv = document.getElementById('messageHistory');
+    
+    if (messages.length === 0) {
+        historyDiv.innerHTML = '<div class="text-center text-muted p-3">No messages found</div>';
+        return;
+    }
+    
+    let html = '<div class="p-3"><h6>Search Results:</h6></div>';
+    
+    messages.forEach(message => {
+        const time = new Date(message.created_at).toLocaleString();
+        html += `
+            <div class="p-2 border-bottom">
+                <div class="small text-muted">${message.sender_name} → ${message.recipient_name}</div>
+                <div class="small">${message.content}</div>
+                <div class="small text-muted">${time}</div>
+            </div>
+        `;
+    });
+    
+    historyDiv.innerHTML = html;
+}
+
+function uploadFile() {
+    const fileInput = document.getElementById('fileInput');
+    const file = fileInput.files[0];
+    
+    if (!file) return;
+    
+    // Validate file size (10MB max)
+    if (file.size > 10 * 1024 * 1024) {
+        alert('File size must be less than 10MB');
+        fileInput.value = '';
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('recipient_id', otherUserId);
+    
+    // Show upload progress
+    const messageInput = document.getElementById('messageInput');
+    const originalPlaceholder = messageInput.placeholder;
+    messageInput.placeholder = 'Uploading file...';
+    messageInput.disabled = true;
+    
+    fetch('/upload/message-file', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // File uploaded successfully, message will be added via Mercure
+            messageInput.placeholder = originalPlaceholder;
+            messageInput.disabled = false;
+            fileInput.value = '';
+        } else {
+            alert('Upload failed: ' + data.error);
+            messageInput.placeholder = originalPlaceholder;
+            messageInput.disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Upload error:', error);
+        alert('Upload failed');
+        messageInput.placeholder = originalPlaceholder;
+        messageInput.disabled = false;
+    });
+}
+
+function refreshMessages() {
+    fetch(`/chat/conversation/${otherUserId}?` + Date.now())
+        .then(response => response.text())
+        .then(html => {
+            // Extract messages from the response
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const newMessages = doc.querySelectorAll('.message');
+            
+            // Get current messages
+            const messageArea = document.getElementById('messageArea');
+            const currentMessages = messageArea.querySelectorAll('.message');
+            
+            // Clear existing messages
+            currentMessages.forEach(msg => msg.remove());
+            
+            // Add all new messages
+            newMessages.forEach(newMsg => {
+                const clonedMsg = newMsg.cloneNode(true);
+                messageArea.appendChild(clonedMsg);
+            });
+            
+            // Scroll to bottom
+            scrollToBottom();
+            
+            console.log('Messages refreshed with', newMessages.length, 'messages');
+        })
+        .catch(error => {
+            console.error('Error refreshing messages:', error);
+        });
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+</script>
+{% endblock %}

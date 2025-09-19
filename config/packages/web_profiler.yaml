@@ -1,10 +1,14 @@
 when@dev:
     web_profiler:
         toolbar: true
+        # Disable toolbar caching to prevent user data persistence
+        intercept_redirects: false
 
     framework:
         profiler:
             collect_serializer_data: true
+            # Ensure profiler doesn't cache user data
+            only_exceptions: false
 
 when@test:
     framework:

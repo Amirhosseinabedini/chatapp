@@ -1,0 +1,78 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Manage Members - {{ group.name }}{% endblock %}
+
+{% block body %}
+<div class="container-fluid p-0">
+    <div class="chat-container">
+        <!-- Sidebar -->
+        <div class="chat-sidebar">
+            <!-- Back Button -->
+            <div class="p-3 border-bottom">
+                <a href="{{ path('app_groups_show', {'id': group.id}) }}" class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Group
+                </a>
+            </div>
+            
+            <!-- Group Info -->
+            <div class="p-3 border-bottom">
+                <div class="d-flex align-items-center">
+                    <img src="{{ group.avatar ?: '/images/default-avatar.svg' }}" 
+                         alt="{{ group.name }}" 
+                         class="user-avatar"
+                         onerror="this.src='/images/default-avatar.svg'">
+                    <div class="user-info">
+                        <div class="user-name">{{ group.name }}</div>
+                        <div class="user-status">
+                            <span class="text-muted">{{ group.description ?: 'No description' }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="chat-main">
+            <div class="p-4">
+                <h4>Group Members</h4>
+                
+                <div class="members-list">
+                    {% for member in members %}
+                    <div class="member-item d-flex align-items-center p-3 border-bottom">
+                        <img src="{{ member.user.avatar ?: '/images/default-avatar.svg' }}" 
+                             alt="{{ member.user.displayNameOrEmail }}" 
+                             class="rounded-circle me-3"
+                             style="width: 40px; height: 40px; object-fit: cover;"
+                             onerror="this.src='/images/default-avatar.svg'">
+                        <div class="flex-grow-1">
+                            <div class="fw-bold">{{ member.user.displayNameOrEmail }}</div>
+                            <small class="text-muted">
+                                {% if member.user.isOnline %}
+                                    <span class="text-success">Online</span>
+                                {% else %}
+                                    Last seen {{ member.user.lastSeenAt ? member.user.lastSeenAt|date('M j, g:i A') : 'Unknown' }}
+                                {% endif %}
+                            </small>
+                        </div>
+                        <div class="role-indicator {{ member.role }}"></div>
+                        <span class="badge bg-secondary ms-2">{{ member.role|title }}</span>
+                        {% if user_role and (user_role == 'owner' or user_role == 'moderator') %}
+                            <button class="btn btn-sm btn-outline-danger ms-2" onclick="removeMember({{ member.user.id }})">
+                                <i class="fas fa-user-times"></i>
+                            </button>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                    
+                    {% if members is empty %}
+                    <div class="text-center text-muted p-4">
+                        <i class="fas fa-users fa-3x mb-3"></i>
+                        <p>No members found</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
