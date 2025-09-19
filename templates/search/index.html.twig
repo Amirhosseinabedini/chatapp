@@ -1,0 +1,114 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Search Results{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">
+                <i class="fas fa-search me-2"></i>Search Results
+                {% if query %}
+                    for "{{ query }}"
+                {% endif %}
+            </h2>
+
+            {% if query %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Found {{ totalResults }} result(s) for "{{ query }}"
+                </div>
+            {% endif %}
+
+            {% if results.users is not empty %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-users me-2"></i>Users ({{ results.users|length }})
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {% for user in results.users %}
+                            <div class="d-flex align-items-center p-3 border-bottom">
+                                <img src="{{ user.avatar }}" alt="{{ user.name }}" class="rounded-circle me-3" width="50" height="50">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">{{ user.name }}</h6>
+                                    <small class="text-muted">{{ user.email }}</small>
+                                </div>
+                                <a href="{{ path('app_chat_conversation', {userId: user.id}) }}" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-comment me-1"></i>Chat
+                                </a>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if results.groups is not empty %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-users me-2"></i>Groups ({{ results.groups|length }})
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {% for group in results.groups %}
+                            <div class="d-flex align-items-center p-3 border-bottom">
+                                <img src="{{ group.avatar }}" alt="{{ group.name }}" class="rounded-circle me-3" width="50" height="50">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">{{ group.name }}</h6>
+                                    <small class="text-muted">{{ group.description }}</small>
+                                </div>
+                                <a href="{{ path('app_groups_show', {id: group.id}) }}" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-eye me-1"></i>View
+                                </a>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if results.messages is not empty %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-comments me-2"></i>Messages ({{ results.messages|length }})
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {% for message in results.messages %}
+                            <div class="p-3 border-bottom">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <p class="mb-1">{{ message.content }}</p>
+                                        <small class="text-muted">
+                                            <i class="fas fa-user me-1"></i>{{ message.sender }}
+                                            <i class="fas fa-clock me-1 ms-2"></i>{{ message.timestamp|date('M j, Y g:i A') }}
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if query and totalResults == 0 %}
+                <div class="text-center py-5">
+                    <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                    <h4 class="text-muted">No results found</h4>
+                    <p class="text-muted">Try different keywords or check your spelling</p>
+                </div>
+            {% endif %}
+
+            {% if not query %}
+                <div class="text-center py-5">
+                    <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                    <h4 class="text-muted">Search the chat app</h4>
+                    <p class="text-muted">Use the search bar in the header to find users, groups, and messages</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

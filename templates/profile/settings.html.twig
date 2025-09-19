@@ -1,0 +1,219 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Settings{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-cog me-2"></i>Account Settings
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Theme Settings -->
+                    <div class="mb-4">
+                        <h5 class="mb-3">Appearance</h5>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="theme" id="themeLight" value="light" checked>
+                            <label class="form-check-label" for="themeLight">
+                                <i class="fas fa-sun me-2"></i>Light Theme
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="theme" id="themeDark" value="dark">
+                            <label class="form-check-label" for="themeDark">
+                                <i class="fas fa-moon me-2"></i>Dark Theme
+                            </label>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Notification Settings -->
+                    <div class="mb-4">
+                        <h5 class="mb-3">Notifications</h5>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="notificationsEnabled" checked>
+                            <label class="form-check-label" for="notificationsEnabled">
+                                Enable notifications
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="messageNotifications" checked>
+                            <label class="form-check-label" for="messageNotifications">
+                                New message notifications
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="groupNotifications" checked>
+                            <label class="form-check-label" for="groupNotifications">
+                                Group activity notifications
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="friendNotifications">
+                            <label class="form-check-label" for="friendNotifications">
+                                Friend request notifications
+                            </label>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Privacy Settings -->
+                    <div class="mb-4">
+                        <h5 class="mb-3">Privacy</h5>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="showOnlineStatus" checked>
+                            <label class="form-check-label" for="showOnlineStatus">
+                                Show online status to others
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="showLastSeen" checked>
+                            <label class="form-check-label" for="showLastSeen">
+                                Show last seen time
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="allowGroupInvites" checked>
+                            <label class="form-check-label" for="allowGroupInvites">
+                                Allow group invitations
+                            </label>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Chat Settings -->
+                    <div class="mb-4">
+                        <h5 class="mb-3">Chat</h5>
+                        <div class="mb-3">
+                            <label for="messageSound" class="form-label">Message Sound</label>
+                            <select class="form-select" id="messageSound">
+                                <option value="default">Default</option>
+                                <option value="none">None</option>
+                                <option value="custom">Custom</option>
+                            </select>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="enterToSend" checked>
+                            <label class="form-check-label" for="enterToSend">
+                                Send messages with Enter key
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="showTypingIndicator" checked>
+                            <label class="form-check-label" for="showTypingIndicator">
+                                Show typing indicators
+                            </label>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Actions -->
+                    <div class="d-flex justify-content-between">
+                        <button type="button" class="btn btn-outline-secondary" onclick="resetSettings()">
+                            <i class="fas fa-undo me-2"></i>Reset to Default
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="saveSettings()">
+                            <i class="fas fa-save me-2"></i>Save Settings
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Load saved settings
+    loadSettings();
+    
+    // Theme change handler
+    document.querySelectorAll('input[name="theme"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.value === 'dark') {
+                document.body.classList.add('dark-theme');
+                document.body.classList.remove('bg-light');
+                document.body.classList.add('bg-dark');
+            } else {
+                document.body.classList.remove('dark-theme');
+                document.body.classList.remove('bg-dark');
+                document.body.classList.add('bg-light');
+            }
+            localStorage.setItem('theme', this.value);
+        });
+    });
+});
+
+function loadSettings() {
+    // Load theme setting
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.getElementById('theme' + savedTheme.charAt(0).toUpperCase() + savedTheme.slice(1)).checked = true;
+    
+    // Load other settings from localStorage or server
+    const settings = JSON.parse(localStorage.getItem('userSettings') || '{}');
+    
+    document.getElementById('notificationsEnabled').checked = settings.notificationsEnabled !== false;
+    document.getElementById('messageNotifications').checked = settings.messageNotifications !== false;
+    document.getElementById('groupNotifications').checked = settings.groupNotifications !== false;
+    document.getElementById('friendNotifications').checked = settings.friendNotifications === true;
+    document.getElementById('showOnlineStatus').checked = settings.showOnlineStatus !== false;
+    document.getElementById('showLastSeen').checked = settings.showLastSeen !== false;
+    document.getElementById('allowGroupInvites').checked = settings.allowGroupInvites !== false;
+    document.getElementById('enterToSend').checked = settings.enterToSend !== false;
+    document.getElementById('showTypingIndicator').checked = settings.showTypingIndicator !== false;
+    
+    if (settings.messageSound) {
+        document.getElementById('messageSound').value = settings.messageSound;
+    }
+}
+
+function saveSettings() {
+    const settings = {
+        notificationsEnabled: document.getElementById('notificationsEnabled').checked,
+        messageNotifications: document.getElementById('messageNotifications').checked,
+        groupNotifications: document.getElementById('groupNotifications').checked,
+        friendNotifications: document.getElementById('friendNotifications').checked,
+        showOnlineStatus: document.getElementById('showOnlineStatus').checked,
+        showLastSeen: document.getElementById('showLastSeen').checked,
+        allowGroupInvites: document.getElementById('allowGroupInvites').checked,
+        enterToSend: document.getElementById('enterToSend').checked,
+        showTypingIndicator: document.getElementById('showTypingIndicator').checked,
+        messageSound: document.getElementById('messageSound').value
+    };
+    
+    localStorage.setItem('userSettings', JSON.stringify(settings));
+    
+    // Show success message
+    const alert = document.createElement('div');
+    alert.className = 'alert alert-success alert-dismissible fade show';
+    alert.innerHTML = `
+        <i class="fas fa-check-circle me-2"></i>Settings saved successfully!
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.querySelector('.card-body').insertBefore(alert, document.querySelector('.card-body').firstChild);
+    
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+        if (alert.parentNode) {
+            alert.remove();
+        }
+    }, 3000);
+}
+
+function resetSettings() {
+    if (confirm('Are you sure you want to reset all settings to default?')) {
+        localStorage.removeItem('userSettings');
+        localStorage.removeItem('theme');
+        location.reload();
+    }
+}
+</script>
+{% endblock %}
