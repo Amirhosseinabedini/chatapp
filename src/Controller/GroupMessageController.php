@@ -8,6 +8,7 @@ use App\Entity\User;
 use App\Repository\GroupRepository;
 use App\Repository\GroupMemberRepository;
 use App\Repository\GroupMessageRepository;
+use App\Repository\NotificationRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -28,6 +29,7 @@ class GroupMessageController extends AbstractController
         private GroupRepository $groupRepository,
         private GroupMemberRepository $groupMemberRepository,
         private GroupMessageRepository $groupMessageRepository,
+        private NotificationRepository $notificationRepository,
         private HubInterface $hub,
         private LoggerInterface $logger
     ) {
@@ -70,6 +72,20 @@ class GroupMessageController extends AbstractController
 
         $this->entityManager->persist($message);
         $this->entityManager->flush();
+
+        // Create notifications for all group members except sender
+        $members = $this->groupMemberRepository->getGroupMembers($group);
+        foreach ($members as $member) {
+            if ($member->getUser()->getId() !== $currentUser->getId()) {
+                $this->notificationRepository->createGroupMessageNotification(
+                    $member->getUser(),
+                    $group->getName(),
+                    $currentUser,
+                    $data['content'],
+                    $message->getId()
+                );
+            }
+        }
 
         // Publish to Mercure
         $this->publishGroupMessage($message);

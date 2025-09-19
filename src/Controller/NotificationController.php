@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Repository\NotificationRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -11,6 +12,11 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 #[Route('/api/notifications')]
 class NotificationController extends AbstractController
 {
+    public function __construct(
+        private NotificationRepository $notificationRepository
+    ) {
+    }
+
     #[Route('', name: 'api_notifications', methods: ['GET'])]
     public function getNotifications(): JsonResponse
     {
@@ -18,39 +24,26 @@ class NotificationController extends AbstractController
 
         $user = $this->getUser();
         
-        // Mock notification data - in a real app, you'd fetch from database
-        $notifications = [
-            [
-                'id' => 1,
-                'type' => 'message',
-                'title' => 'New Message',
-                'message' => 'You have a new message from John Doe',
-                'isRead' => false,
-                'createdAt' => (new \DateTime())->format('c')
-            ],
-            [
-                'id' => 2,
-                'type' => 'group',
-                'title' => 'Group Invitation',
-                'message' => 'You have been invited to join "Project Team"',
-                'isRead' => true,
-                'createdAt' => (new \DateTime('-1 hour'))->format('c')
-            ],
-            [
-                'id' => 3,
-                'type' => 'system',
-                'title' => 'System Update',
-                'message' => 'The chat system has been updated with new features',
-                'isRead' => false,
-                'createdAt' => (new \DateTime('-2 hours'))->format('c')
-            ]
-        ];
+        // Get notifications from database
+        $notifications = $this->notificationRepository->findByUser($user, 50);
+        $unreadCount = $this->notificationRepository->getUnreadCount($user);
 
-        $unreadCount = count(array_filter($notifications, fn($n) => !$n['isRead']));
+        $notificationData = [];
+        foreach ($notifications as $notification) {
+            $notificationData[] = [
+                'id' => $notification->getId(),
+                'type' => $notification->getType(),
+                'title' => $notification->getTitle(),
+                'message' => $notification->getMessage(),
+                'isRead' => $notification->isRead(),
+                'createdAt' => $notification->getCreatedAt()->format('c'),
+                'data' => $notification->getData()
+            ];
+        }
 
         return new JsonResponse([
             'success' => true,
-            'notifications' => $notifications,
+            'notifications' => $notificationData,
             'unreadCount' => $unreadCount
         ]);
     }
@@ -60,12 +53,13 @@ class NotificationController extends AbstractController
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
 
-        // In a real app, you'd update the database here
-        // For now, just return success
+        $user = $this->getUser();
+        $updatedCount = $this->notificationRepository->markAllAsRead($user);
 
         return new JsonResponse([
             'success' => true,
-            'message' => 'All notifications marked as read'
+            'message' => 'All notifications marked as read',
+            'updatedCount' => $updatedCount
         ]);
     }
 
@@ -74,12 +68,19 @@ class NotificationController extends AbstractController
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
 
-        // In a real app, you'd update the specific notification in the database
-        // For now, just return success
+        $user = $this->getUser();
+        $success = $this->notificationRepository->markAsRead($id, $user);
+
+        if ($success) {
+            return new JsonResponse([
+                'success' => true,
+                'message' => 'Notification marked as read'
+            ]);
+        }
 
         return new JsonResponse([
-            'success' => true,
-            'message' => 'Notification marked as read'
-        ]);
+            'success' => false,
+            'message' => 'Notification not found or access denied'
+        ], 404);
     }
 }

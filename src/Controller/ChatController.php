@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\Message;
 use App\Entity\User;
 use App\Repository\MessageRepository;
+use App\Repository\NotificationRepository;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -25,6 +26,7 @@ class ChatController extends AbstractController
         private EntityManagerInterface $entityManager,
         private MessageRepository $messageRepository,
         private UserRepository $userRepository,
+        private NotificationRepository $notificationRepository,
         private HubInterface $hub,
         private LoggerInterface $logger
     ) {
@@ -135,8 +137,21 @@ class ChatController extends AbstractController
         $message->markAsDelivered();
         $this->entityManager->flush();
 
+        // Create notification for recipient
+        $notification = $this->notificationRepository->createMessageNotification(
+            $recipient,
+            $currentUser,
+            $data['content'],
+            $message->getId()
+        );
+
         // Publish to Mercure
         $this->publishMessage($message);
+
+        // Send push notification if recipient is offline
+        if (!$recipient->isOnline()) {
+            $this->sendPushNotification($recipient, $currentUser, $data['content'], $message->getId());
+        }
 
         // Log message sent
         $this->logger->info('Message sent', [
@@ -341,5 +356,40 @@ class ChatController extends AbstractController
         ], JSON_THROW_ON_ERROR);
 
         $this->hub->publish(new Update($topic, $data, false));
+    }
+
+    private function sendPushNotification(User $recipient, User $sender, string $content, int $messageId): void
+    {
+        // Publish push notification via Mercure
+        $topic = 'https://chatapp.local/notifications/' . $recipient->getId();
+        
+        $notificationData = [
+            'title' => 'New Message',
+            'body' => sprintf('%s: %s', $sender->getDisplayNameOrEmail(), 
+                strlen($content) > 100 ? substr($content, 0, 100) . '...' : $content),
+            'icon' => '/images/icon.svg',
+            'badge' => '/images/icon.svg',
+            'tag' => 'chat-notification',
+            'data' => [
+                'url' => '/chat/conversation/' . $sender->getId(),
+                'sender_id' => $sender->getId(),
+                'sender_name' => $sender->getDisplayNameOrEmail(),
+                'message_id' => $messageId,
+                'type' => 'message'
+            ],
+            'actions' => [
+                [
+                    'action' => 'open',
+                    'title' => 'Open Chat',
+                    'icon' => '/images/icon.svg'
+                ],
+                [
+                    'action' => 'dismiss',
+                    'title' => 'Dismiss'
+                ]
+            ]
+        ];
+
+        $this->hub->publish(new Update($topic, json_encode($notificationData, JSON_THROW_ON_ERROR), false));
     }
 }

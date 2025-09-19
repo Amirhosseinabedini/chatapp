@@ -144,13 +144,17 @@ self.addEventListener('push', event => {
 
 // Notification click event
 self.addEventListener('notificationclick', event => {
-    console.log('Notification clicked');
+    console.log('Notification clicked', event.notification.data);
     
     event.notification.close();
 
     if (event.action === 'dismiss') {
         return;
     }
+
+    // Get the URL from notification data
+    const notificationData = event.notification.data || {};
+    const targetUrl = notificationData.url || '/';
 
     // Default action or 'open' action
     event.waitUntil(
@@ -159,13 +163,19 @@ self.addEventListener('notificationclick', event => {
                 // Check if chat app is already open
                 for (const client of clientList) {
                     if (client.url.includes(location.origin) && 'focus' in client) {
-                        return client.focus();
+                        // Focus existing window and navigate to the specific chat
+                        client.focus();
+                        client.postMessage({
+                            type: 'NAVIGATE_TO',
+                            url: targetUrl
+                        });
+                        return;
                     }
                 }
                 
                 // Open new window if app is not open
                 if (clients.openWindow) {
-                    return clients.openWindow('/');
+                    return clients.openWindow(targetUrl);
                 }
             })
     );
