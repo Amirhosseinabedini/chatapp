@@ -9,6 +9,12 @@
 /vendor/
 ###< symfony/framework-bundle ###
 
+# Production-specific files for online server
+/index.prod.php
+/config/packages/prod/
+/.env.prod
+/src/Service/MockHubInterface.php
+
 ###> phpunit/phpunit ###
 /phpunit.xml
 /.phpunit.cache/
