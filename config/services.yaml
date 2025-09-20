@@ -19,5 +19,9 @@ services:
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
 
+    # Mock Mercure Hub for production environments without real Mercure
+    App\Service\MockHubInterface: ~
+    
     Symfony\Component\Mercure\HubInterface:
         class: App\Service\MockHubInterface
+        public: false
