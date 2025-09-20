@@ -24,26 +24,13 @@ class NotificationController extends AbstractController
 
         $user = $this->getUser();
         
-        // Get notifications from database
+        // Get notifications from database (using Message table)
         $notifications = $this->notificationRepository->findByUser($user, 50);
         $unreadCount = $this->notificationRepository->getUnreadCount($user);
 
-        $notificationData = [];
-        foreach ($notifications as $notification) {
-            $notificationData[] = [
-                'id' => $notification->getId(),
-                'type' => $notification->getType(),
-                'title' => $notification->getTitle(),
-                'message' => $notification->getMessage(),
-                'isRead' => $notification->isRead(),
-                'createdAt' => $notification->getCreatedAt()->format('c'),
-                'data' => $notification->getData()
-            ];
-        }
-
         return new JsonResponse([
             'success' => true,
-            'notifications' => $notificationData,
+            'notifications' => $notifications,
             'unreadCount' => $unreadCount
         ]);
     }

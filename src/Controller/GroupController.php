@@ -45,7 +45,7 @@ class GroupController extends AbstractController
             // Refresh user from database to ensure we have latest data
             $currentUser = $this->userRepository->find($currentUser->getId());
         }
-        
+
         $userGroups = $this->groupRepository->getUserGroups($currentUser);
         $publicGroups = $this->groupRepository->getPublicGroups(10);
 
@@ -54,14 +54,14 @@ class GroupController extends AbstractController
             'public_groups' => $publicGroups,
             'current_user' => $currentUser,
         ]);
-        
+
         // Add aggressive cache-busting headers
         $response->headers->set('Cache-Control', 'no-cache, no-store, must-revalidate, private');
         $response->headers->set('Pragma', 'no-cache');
         $response->headers->set('Expires', '0');
         $response->headers->set('Last-Modified', gmdate('D, d M Y H:i:s') . ' GMT');
         $response->headers->set('ETag', md5(serialize([$currentUser->getId(), time()])));
-        
+
         return $response;
     }
 
@@ -124,7 +124,7 @@ class GroupController extends AbstractController
             // Refresh user from database to ensure we have latest data
             $currentUser = $this->userRepository->find($currentUser->getId());
         }
-        
+
         $group = $this->groupRepository->find($id);
 
         if (!$group) {
@@ -134,7 +134,7 @@ class GroupController extends AbstractController
         $member = $this->groupMemberRepository->findByGroupAndUser($group, $currentUser);
         $isAdmin = $this->isGranted('ROLE_ADMIN');
         $isPublicGroup = $group->isPublic();
-        
+
         if (!$member && !$isAdmin && !$isPublicGroup) {
             throw $this->createNotFoundException('You are not a member of this group');
         }
@@ -144,7 +144,7 @@ class GroupController extends AbstractController
         $members = $this->groupMemberRepository->getGroupMembers($group);
 
         $userRole = $member ? $member->getRole() : ($isAdmin ? 'admin' : ($isPublicGroup ? 'guest' : null));
-        
+
         $response = $this->render('groups/show.html.twig', [
             'group' => $group,
             'messages' => array_reverse($messages),
@@ -154,14 +154,14 @@ class GroupController extends AbstractController
             'user_role' => $userRole,
             'is_admin' => $isAdmin,
         ]);
-        
+
         // Add aggressive cache-busting headers
         $response->headers->set('Cache-Control', 'no-cache, no-store, must-revalidate, private');
         $response->headers->set('Pragma', 'no-cache');
         $response->headers->set('Expires', '0');
         $response->headers->set('Last-Modified', gmdate('D, d M Y H:i:s') . ' GMT');
         $response->headers->set('ETag', md5(serialize([$currentUser->getId(), $group->getId(), time()])));
-        
+
         return $response;
     }
 
@@ -220,7 +220,7 @@ class GroupController extends AbstractController
 
         $member = $this->groupMemberRepository->findByGroupAndUser($group, $currentUser);
         $isAdmin = $this->isGranted('ROLE_ADMIN');
-        
+
         if ((!$member || !$member->canManageMembers()) && !$isAdmin) {
             return new JsonResponse(['error' => 'You do not have permission to generate invites'], 403);
         }
@@ -247,7 +247,7 @@ class GroupController extends AbstractController
 
         $member = $this->groupMemberRepository->findByGroupAndUser($group, $currentUser);
         $isAdmin = $this->isGranted('ROLE_ADMIN');
-        
+
         if ((!$member || !$member->canManageMembers()) && !$isAdmin) {
             throw $this->createNotFoundException('You do not have permission to manage members');
         }
@@ -275,7 +275,7 @@ class GroupController extends AbstractController
 
         $currentMember = $this->groupMemberRepository->findByGroupAndUser($group, $currentUser);
         $isAdmin = $this->isGranted('ROLE_ADMIN');
-        
+
         if ((!$currentMember || !$currentMember->canManageMembers()) && !$isAdmin) {
             return new JsonResponse(['error' => 'You do not have permission to manage members'], 403);
         }
@@ -359,7 +359,7 @@ class GroupController extends AbstractController
             // Refresh user from database to ensure we have latest data
             $currentUser = $this->userRepository->find($currentUser->getId());
         }
-        
+
         $group = $this->groupRepository->find($id);
 
         if (!$group) {
@@ -368,7 +368,7 @@ class GroupController extends AbstractController
 
         $member = $this->groupMemberRepository->findByGroupAndUser($group, $currentUser);
         $isAdmin = $this->isGranted('ROLE_ADMIN');
-        
+
         if (!$member && !$isAdmin) {
             return new JsonResponse(['error' => 'You are not a member of this group'], 403);
         }
@@ -391,12 +391,12 @@ class GroupController extends AbstractController
         }
 
         $response = new JsonResponse(['members' => $memberData]);
-        
+
         // Add cache-busting headers
         $response->headers->set('Cache-Control', 'no-cache, no-store, must-revalidate');
         $response->headers->set('Pragma', 'no-cache');
         $response->headers->set('Expires', '0');
-        
+
         return $response;
     }
 

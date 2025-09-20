@@ -82,6 +82,7 @@
                         
                         {% if user.avatar %}
                         <form method="post" action="{{ path('app_profile_remove_avatar') }}" class="d-inline">
+                            <input type="hidden" name="_token" value="{{ csrf_token('remove_avatar') }}">
                             <button type="submit" class="btn btn-outline-danger" 
                                     onclick="return confirm('Are you sure you want to remove your avatar?')">
                                 <i class="fas fa-trash me-2"></i>Remove Avatar

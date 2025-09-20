@@ -19,7 +19,7 @@ framework:
         gc_divisor: 1000
     
     # CSRF Protection
-    csrf_protection: false
+    csrf_protection: true
 
     #esi: true
     #fragments: true

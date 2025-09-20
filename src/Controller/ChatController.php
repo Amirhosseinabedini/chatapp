@@ -137,8 +137,8 @@ class ChatController extends AbstractController
         $message->markAsDelivered();
         $this->entityManager->flush();
 
-        // Create notification for recipient
-        $notification = $this->notificationRepository->createMessageNotification(
+        // Create notification for recipient (using Message table)
+        $this->notificationRepository->createMessageNotification(
             $recipient,
             $currentUser,
             $data['content'],
