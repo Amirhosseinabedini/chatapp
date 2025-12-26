@@ -10,8 +10,13 @@
     
     # If index.php is in URL, remove it and redirect to clean URL
     # This handles cases where users access /index.php/login and redirects to /login
-    RewriteCond %{REQUEST_URI} ^/index\.php(.*)$ [NC]
-    RewriteRule ^index\.php(.*)$ %1 [R=301,L]
+    # Must be checked before other rules to catch direct index.php requests
+    # Handle /index.php/path -> /path
+    RewriteCond %{REQUEST_URI} ^/index\.php/(.+)$ [NC]
+    RewriteRule ^index\.php/(.+)$ /$1 [R=301,L]
+    # Handle /index.php -> /
+    RewriteCond %{REQUEST_URI} ^/index\.php$ [NC]
+    RewriteRule ^index\.php$ / [R=301,L]
     
     # If requesting an actual file or directory in root, serve it
     RewriteCond %{REQUEST_FILENAME} -f [OR]
