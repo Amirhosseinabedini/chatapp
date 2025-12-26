@@ -11,7 +11,7 @@
   <script>
   (function() {
     const topic = '{{ topic }}'; // raw topic
-    const hubUrl = 'http://127.0.0.1:8080/.well-known/mercure';
+    const hubUrl = '{{ mercure_public_url }}';
     const urlObj = new URL(hubUrl);
     urlObj.searchParams.append('topic', topic);
     const url = urlObj.toString();

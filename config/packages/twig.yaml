@@ -1,5 +1,8 @@
 twig:
     file_name_pattern: '*.twig'
+    globals:
+        # Mercure public URL from environment variable
+        mercure_public_url: '%env(default:MERCURE_PUBLIC_URL:http://127.0.0.1:8080/.well-known/mercure)%'
 
 when@test:
     twig:

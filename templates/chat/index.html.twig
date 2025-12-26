@@ -122,7 +122,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function subscribeToPresence() {
-    const hubUrl = 'http://127.0.0.1:8080/.well-known/mercure';
+    const hubUrl = '{{ mercure_public_url }}';
     const urlObj = new URL(hubUrl);
     urlObj.searchParams.append('topic', 'https://chatapp.local/presence');
     
@@ -305,7 +305,7 @@ function startChatWithUser(userId) {
 
 // Subscribe to conversation updates for all conversations
 function subscribeToConversationUpdates() {
-    const hubUrl = 'http://127.0.0.1:8080/.well-known/mercure';
+    const hubUrl = '{{ mercure_public_url }}';
     const urlObj = new URL(hubUrl);
     
     // Subscribe to all conversation topics for this user

@@ -34,6 +34,12 @@
         {% endblock %}
         
         <script>
+        // Environment configuration from Symfony
+        // Pass APP_DEBUG to JavaScript for consistent dev mode detection
+        const APP_DEBUG = {{ app.debug ? 'true' : 'false' }};
+        const APP_ENV = '{{ app.environment }}';
+        const DEVMODE = {{ app.debug ? '1' : '0' }};
+        
         // Force cache busting for chat pages
         document.addEventListener('DOMContentLoaded', function() {
             // Add timestamp to all internal links
@@ -345,11 +351,12 @@
             });
         }
 
-        // Check if we're in development environment (has Mercure)
-        const isProduction = !window.location.hostname.includes('127.0.0.1') && !window.location.hostname.includes('localhost');
+        // Check if we're in development environment using APP_DEBUG
+        // This ensures consistent behavior across local and online environments
+        const isProduction = !APP_DEBUG && APP_ENV !== 'dev';
         
-        if (!isProduction) {
-            // Load notifications only in development
+        if (!isProduction && DEVMODE === 1) {
+            // Load notifications only in development mode
             loadNotifications();
             
             // Set up notification polling
@@ -510,7 +517,7 @@
             if (!currentUserId) return;
 
             const topic = `https://chatapp.local/notifications/${currentUserId}`;
-            const hubUrl = 'http://127.0.0.1:8080/.well-known/mercure';
+            const hubUrl = '{{ mercure_public_url }}';
             const urlObj = new URL(hubUrl);
             urlObj.searchParams.append('topic', topic);
             
