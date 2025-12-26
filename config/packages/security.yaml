@@ -14,6 +14,23 @@ security:
             pattern: ^/(_(profiler|wdt)|css|images|js)/
             security: false
         main:
-            security: false
+            lazy: true
+            provider: app_user_provider
+            form_login:
+                login_path: app_login
+                check_path: app_login
+                default_target_path: app_chat_index
+                always_use_default_target_path: false
+                enable_csrf: true
+            logout:
+                path: app_logout
+                target: app_login
+            remember_me:
+                secret: '%kernel.secret%'
+                lifetime: 604800
+                path: /
+                always_remember_me: true
 
-    access_control: []
+    access_control:
+        - { path: ^/login, roles: PUBLIC_ACCESS }
+        - { path: ^/, roles: IS_AUTHENTICATED_FULLY }
