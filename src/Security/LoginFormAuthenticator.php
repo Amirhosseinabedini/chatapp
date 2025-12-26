@@ -47,8 +47,8 @@ class LoginFormAuthenticator extends AbstractLoginFormAuthenticator
             return new RedirectResponse($targetPath);
         }
 
-        // Redirect to groups page after successful login
-        return new RedirectResponse($this->urlGenerator->generate('app_groups_index'));
+        // Redirect to chat page after successful login
+        return new RedirectResponse($this->urlGenerator->generate('app_chat_index'));
     }
 
     protected function getLoginUrl(Request $request): string
