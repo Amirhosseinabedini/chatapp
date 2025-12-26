@@ -1,0 +1,38 @@
+# Symfony routing configuration for Ionos and shared hosting
+# This handles routing when document root is the project root
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Handle Authorization Header
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+    
+    # If requesting an actual file or directory in root, serve it
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+    
+    # If file exists in public/, serve it from there
+    RewriteCond %{DOCUMENT_ROOT}/public/$1 -f [OR]
+    RewriteCond %{DOCUMENT_ROOT}/public/$1 -d
+    RewriteRule ^(.*)$ public/$1 [L]
+    
+    # Otherwise, route through root index.php (which bootstraps Symfony)
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ index.php [QSA,L]
+</IfModule>
+
+# Security: Prevent direct access to sensitive files and directories
+<FilesMatch "^(\.env|composer\.(json|lock)|symfony\.lock|\.git)">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "^(\.env\.local|\.env\.prod|\.env\.dev)">
+    Require all denied
+</FilesMatch>
+
+# Prevent directory listing
+Options -Indexes
+

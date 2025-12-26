@@ -1,4 +1,8 @@
 <?php
+/**
+ * Public entry point for Symfony application
+ * This is the standard entry point when document root is public/
+ */
 
 use App\Kernel;
 
